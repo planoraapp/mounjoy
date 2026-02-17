@@ -1,84 +1,104 @@
-import React, { useState } from 'react';
-import { Home, ClipboardList, LineChart, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, PenLine, BarChart3, Settings } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Logs from './components/Logs';
 import Charts from './components/Charts';
+import Profile from './components/Profile';
+import Onboarding from './components/Onboarding';
+import LandingPage from './components/LandingPage';
 
-
-// Custom data hook or context would go here, using mock for now
-const userData = {
-    name: "Usuário",
-    startWeight: 115.0,
-    currentWeight: 104.0,
-    goalWeight: 90.0,
-    dose: "5.0 mg",
-    nextDoseDate: "2023-10-12", // ISO Format
-    nextDoseDay: "Quinta",
-    history: [
-        { date: 'Sem 1', weight: 115.0 },
-        { date: 'Sem 2', weight: 112.5 },
-        { date: 'Sem 3', weight: 110.2 },
-        { date: 'Sem 4', weight: 108.5 },
-        { date: 'Sem 5', weight: 106.8 },
-        { date: 'Sem 6', weight: 104.5 },
-        { date: 'Sem 7', weight: 104.0 }
-    ]
-};
-
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
+const NavItem = ({ icon: Icon, active, onClick }) => (
     <button
         onClick={onClick}
-        className={`flex flex-col items-center justify-center w-16 h-16 transition-all duration-300 ${active ? 'text-brand scale-110' : 'text-slate-400 hover:text-slate-600'
+        className={`p-3 transition-all duration-300 ${active
+            ? 'text-brand'
+            : 'text-slate-400 hover:text-brand'
             }`}
     >
-        <div className={`p-2 rounded-2xl ${active ? 'bg-brand/10' : ''}`}>
-            <Icon size={24} strokeWidth={active ? 2.5 : 2} />
-        </div>
-        <span className="text-[10px] font-medium mt-1">{label}</span>
+        <Icon size={26} strokeWidth={active ? 2.5 : 2} />
     </button>
 );
 
 const App = () => {
+    const [user, setUser] = useState(null);
     const [activeTab, setActiveTab] = useState('home');
+    const [loading, setLoading] = useState(true);
+    const [startedOnboarding, setStartedOnboarding] = useState(false);
+
+    useEffect(() => {
+        const savedUser = localStorage.getItem('mounjoy_user2');
+        if (savedUser) {
+            setUser(JSON.parse(savedUser));
+        }
+        setLoading(false);
+    }, []);
+
+    const handleOnboardingComplete = (data) => {
+        const newUser = {
+            ...data,
+            currentWeight: parseFloat(data.startWeight),
+            history: [parseFloat(data.startWeight)],
+            startDate: new Date().toISOString()
+        };
+        setUser(newUser);
+        localStorage.setItem('mounjoy_user2', JSON.stringify(newUser));
+    };
+
+    const handleReset = () => {
+        localStorage.removeItem('mounjoy_user2');
+        setUser(null);
+        setActiveTab('home');
+        setStartedOnboarding(false);
+    };
+
+    if (loading) return null;
+
+    if (!user && !startedOnboarding) {
+        return <LandingPage onStart={() => setStartedOnboarding(true)} />;
+    }
+
+    if (!user && startedOnboarding) {
+        return <Onboarding onComplete={handleOnboardingComplete} />;
+    }
+
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'home': return <Dashboard user={user} setUser={setUser} />;
+            case 'logs': return <Logs user={user} />;
+            case 'charts': return <Charts user={user} />;
+            case 'profile': return <Profile user={user} onReset={handleReset} />;
+            default: return <Dashboard user={user} setUser={setUser} />;
+        }
+    };
 
     return (
-        <div className="min-h-screen pb-32">
-            <main className="max-w-md mx-auto px-6 pt-10">
-                {activeTab === 'home' && <Dashboard userData={userData} />}
-                {activeTab === 'logs' && <Logs />}
-                {activeTab === 'charts' && <Charts userData={userData} />}
-                {activeTab === 'profile' && <div className="text-center py-20 text-slate-400 font-medium">Profile Content Coming Soon</div>}
+        <div className="min-h-screen bg-transparent pb-24 selection:bg-brand-100">
+            {/* Minimalist Header */}
+            <header className="px-6 py-6 flex justify-between items-center bg-transparent max-w-md mx-auto">
+                <div>
+                    <h1 className="text-2xl font-bold text-brand-900 tracking-tight">Olá, {user.name}</h1>
+                    <p className="text-sm text-slate-500 font-medium font-outfit">Semana 1 • {user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1)}</p>
+                </div>
+                <div
+                    className="w-12 h-12 bg-white rounded-2xl shadow-soft flex items-center justify-center border border-slate-100 cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => setActiveTab('profile')}
+                >
+                    <span className="text-brand-600 font-bold text-lg">{user.name.charAt(0).toUpperCase()}</span>
+                </div>
+            </header>
+
+            {/* Main Content Area */}
+            <main className="px-6 max-w-md mx-auto">
+                {renderContent()}
             </main>
 
-            {/* Floating Bottom Navigation */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-                <nav className="glass-panel rounded-[32px] px-4 py-2 flex items-center gap-2 shadow-2xl">
-                    <NavItem
-                        icon={Home}
-                        label="Home"
-                        active={activeTab === 'home'}
-                        onClick={() => setActiveTab('home')}
-                    />
-                    <NavItem
-                        icon={ClipboardList}
-                        label="Logs"
-                        active={activeTab === 'logs'}
-                        onClick={() => setActiveTab('logs')}
-                    />
-                    <NavItem
-                        icon={LineChart}
-                        label="Charts"
-                        active={activeTab === 'charts'}
-                        onClick={() => setActiveTab('charts')}
-                    />
-                    <NavItem
-                        icon={User}
-                        label="Profile"
-                        active={activeTab === 'profile'}
-                        onClick={() => setActiveTab('profile')}
-                    />
-                </nav>
-            </div>
+            {/* Bottom Navigation (Floating Dock Style) */}
+            <nav className="fixed bottom-6 left-5 right-5 h-16 bg-white/90 backdrop-blur-md rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-white/50 flex justify-around items-center px-2 z-40 max-w-sm mx-auto">
+                <NavItem icon={Home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+                <NavItem icon={PenLine} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
+                <NavItem icon={BarChart3} active={activeTab === 'charts'} onClick={() => setActiveTab('charts')} />
+                <NavItem icon={Settings} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+            </nav>
         </div>
     );
 };

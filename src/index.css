@@ -1,33 +1,157 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+@theme {
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-900: #134e4a;
+  --color-brand-light: #14b8a6;
+  --color-brand-dark: #0d9488;
+
+  --color-accent-light: #ffedd5;
+  --color-accent: #fb923c;
+
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-outfit: "Outfit", sans-serif;
+
+  --radius-super: 32px;
+
+  --shadow-soft: 0 10px 40px -10px rgba(13, 148, 136, 0.15);
+  --shadow-inner-light: inset 0 2px 4px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Global Styles */
 @layer base {
   body {
-    @apply antialiased text-slate-800;
+    @apply antialiased text-slate-800 font-sans selection:bg-brand-100;
+    background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 100%);
+    min-height: 100vh;
   }
 }
 
+/* Custom Components */
 @layer components {
+
+  /* Glassmorphism Refinado */
   .glass-panel {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-teal;
+    @apply backdrop-blur-md border border-white/50 shadow-soft;
+    background: rgba(255, 255, 255, 0.85);
   }
-  
+
+  .btn-primary {
+    @apply text-white font-bold transition-all active:scale-95;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+  }
+
   .pill-button {
     @apply rounded-full px-6 py-3 font-semibold transition-all active:scale-95;
   }
 
+  /* Avoiding nested @apply within same layer for custom classes in V4 if it's finicky */
   .pill-button-primary {
-    @apply pill-button bg-brand text-white hover:bg-brand-dark shadow-lg shadow-brand/20;
+    @apply rounded-full px-6 py-3 font-semibold transition-all active:scale-95;
+    @apply text-white font-bold hover:brightness-110;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
   }
 
   .pill-button-secondary {
-    @apply pill-button bg-white text-brand border border-brand/20 hover:bg-brand/5;
+    @apply rounded-full px-6 py-3 font-semibold transition-all active:scale-95;
+    @apply bg-white text-brand-600 border border-white/20 hover:bg-brand-50;
   }
 
   .card-super {
-    @apply rounded-super glass-panel p-6;
+    @apply rounded-super backdrop-blur-md border border-white/50 shadow-soft p-6;
+    background: rgba(255, 255, 255, 0.85);
   }
+
+  /* Range Slider */
+  .custom-range {
+    appearance: none;
+    -webkit-appearance: none;
+    @apply bg-transparent w-full;
+  }
+
+  .custom-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    @apply h-6 w-6 rounded-full bg-brand-600 cursor-pointer border-2 border-white shadow-md;
+    margin-top: -10px;
+  }
+
+  .custom-range::-webkit-slider-runnable-track {
+    @apply w-full h-1.5 cursor-pointer bg-brand-100 rounded-full;
+  }
+
+  /* Animação suave de entrada */
+  .fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeInLeft {
+  animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeInRight {
+  animation: fadeInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Custom scrollbar for mobile feel */
