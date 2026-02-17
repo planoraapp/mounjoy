@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-slate-800;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-teal;
+  }
+  
+  .pill-button {
+    @apply rounded-full px-6 py-3 font-semibold transition-all active:scale-95;
+  }
+
+  .pill-button-primary {
+    @apply pill-button bg-brand text-white hover:bg-brand-dark shadow-lg shadow-brand/20;
+  }
+
+  .pill-button-secondary {
+    @apply pill-button bg-white text-brand border border-brand/20 hover:bg-brand/5;
+  }
+
+  .card-super {
+    @apply rounded-super glass-panel p-6;
+  }
+}
+
+/* Custom scrollbar for mobile feel */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
