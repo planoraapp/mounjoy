@@ -86,9 +86,20 @@
 
   /* Animação suave de entrada */
   .fade-in {
-    animation: fadeIn 0.4s ease-out forwards;
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
-    transform: translateY(10px);
+  }
+
+  /* Staggered entries */
+  .stagger-1 { animation-delay: 100ms; }
+  .stagger-2 { animation-delay: 200ms; }
+  .stagger-3 { animation-delay: 300ms; }
+  .stagger-4 { animation-delay: 400ms; }
+  .stagger-5 { animation-delay: 500ms; }
+
+  .nausea-strong-glow {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    border-color: #ef4444 !important;
   }
 }
 
@@ -105,13 +116,17 @@
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px);
   }
 
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.stroke-round {
+  stroke-linecap: round;
 }
 
 @keyframes fadeInLeft {

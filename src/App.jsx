@@ -28,17 +28,51 @@ const App = () => {
     useEffect(() => {
         const savedUser = localStorage.getItem('mounjoy_user2');
         if (savedUser) {
-            setUser(JSON.parse(savedUser));
+            const parsed = JSON.parse(savedUser);
+            // Quick migration for existing users
+            const migrated = {
+                ...parsed,
+                doseHistory: parsed.doseHistory || [],
+                sideEffectsLogs: parsed.sideEffectsLogs || [],
+                measurements: parsed.measurements || [],
+                dailyIntakeHistory: parsed.dailyIntakeHistory || {},
+                isMaintenance: parsed.isMaintenance || false,
+                settings: {
+                    remindersEnabled: true,
+                    proteinGoal: 100,
+                    waterGoal: 2.5,
+                    ...parsed.settings
+                }
+            };
+            setUser(migrated);
         }
         setLoading(false);
     }, []);
 
     const handleOnboardingComplete = (data) => {
+        const now = new Date().toISOString();
         const newUser = {
             ...data,
             currentWeight: parseFloat(data.startWeight),
             history: [parseFloat(data.startWeight)],
-            startDate: new Date().toISOString()
+            startDate: now,
+            lastWeightDate: now,
+            // New Structures for Scale
+            doseHistory: [{
+                date: now,
+                dose: data.currentDose,
+                medication: data.medicationId,
+                site: 'Não registrado'
+            }],
+            sideEffectsLogs: [],
+            measurements: [],
+            dailyIntakeHistory: {}, // Format: { "YYYY-MM-DD": { water: 0, protein: 0 } }
+            isMaintenance: false,
+            settings: {
+                remindersEnabled: true,
+                proteinGoal: 100,
+                waterGoal: 2.5
+            }
         };
         setUser(newUser);
         localStorage.setItem('mounjoy_user2', JSON.stringify(newUser));
@@ -71,13 +105,25 @@ const App = () => {
         }
     };
 
+    const getWeekNumber = () => {
+        const start = new Date(user.startDate);
+        const now = new Date();
+        const diffTime = Math.abs(now - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        return Math.ceil(diffDays / 7);
+    };
+
+    const medicationName = user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1);
+
     return (
         <div className="min-h-screen bg-transparent pb-24 selection:bg-brand-100">
             {/* Minimalist Header */}
             <header className="px-6 py-6 flex justify-between items-center bg-transparent max-w-md mx-auto">
                 <div>
                     <h1 className="text-2xl font-bold text-brand-900 tracking-tight">Olá, {user.name}</h1>
-                    <p className="text-sm text-slate-500 font-medium font-outfit">Semana 1 • {user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1)}</p>
+                    <p className="text-sm text-slate-500 font-semibold font-outfit">
+                        Você está na {getWeekNumber()}ª semana em uso de {medicationName}
+                    </p>
                 </div>
                 <div
                     className="w-12 h-12 bg-white rounded-2xl shadow-soft flex items-center justify-center border border-slate-100 cursor-pointer hover:shadow-lg transition-shadow"
