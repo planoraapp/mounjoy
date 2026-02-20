@@ -111,3 +111,54 @@ export const CircularProgress = ({ value, max, label, icon: Icon, color = "teal"
         </div>
     );
 };
+
+export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
+    const percentage = ((parseFloat(value) - min) / (max - min)) * 100;
+
+    return (
+        <div className="mb-8">
+            <div className="flex justify-between items-end px-1 mb-4">
+                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</label>
+                <div className="flex items-center gap-1.5 focus-within:scale-110 transition-transform">
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+                    <span className="text-xl font-black text-teal-600 uppercase tabular-nums">
+                        {value} <span className="text-xs ml-0.5">{suffix}</span>
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-[28px] border-2 border-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] focus-within:border-teal-500 transition-all">
+                <div className="flex-1 relative h-3">
+                    <div className="absolute inset-0 bg-slate-50 rounded-full"></div>
+                    <div
+                        className="absolute inset-0 bg-gradient-to-r from-teal-400 to-teal-600 rounded-full"
+                        style={{ width: `${percentage}%` }}
+                    ></div>
+                    <input
+                        type="range"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div
+                        className="absolute top-1/2 -translate-y-1/2 w-7 h-7 bg-white border-[5px] border-teal-600 rounded-full shadow-xl pointer-events-none transition-transform active:scale-125"
+                        style={{ left: `calc(${percentage}% - 14px)` }}
+                    ></div>
+                </div>
+
+                <div className="w-24 relative flex-shrink-0">
+                    <input
+                        type="number"
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full bg-white border border-slate-100 rounded-[20px] py-4 text-center font-black text-teal-900 focus:ring-2 focus:ring-teal-500 text-xl shadow-sm tabular-nums"
+                        step={step}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};

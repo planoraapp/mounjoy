@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Activity, Plus, Heart, Droplet, Info, Thermometer, Zap, TrendingUp, Syringe, Calendar } from 'lucide-react';
-import { Modal, Input, Button, CircularProgress } from './ui/BaseComponents';
+import { Modal, Input, Button, CircularProgress, Slider } from './ui/BaseComponents';
 import AlertBox from './ui/AlertBox';
 import BodySelector from './ui/BodySelector';
 import { suggestNextInjection, getSiteById } from '../services/InjectionService';
+import { MOCK_MEDICATIONS } from '../constants/medications';
 
 const TIPS = [
     "Beba pelo menos 2.5L de água para ajudar os rins a processar a quebra de gordura.",
@@ -14,6 +15,7 @@ const TIPS = [
 ];
 
 const Dashboard = ({ user, setUser }) => {
+    const medication = MOCK_MEDICATIONS.find(m => m.id === user.medicationId);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [newWeight, setNewWeight] = useState('');
     const [showInjectionModal, setShowInjectionModal] = useState(false);
@@ -128,16 +130,17 @@ const Dashboard = ({ user, setUser }) => {
     }, [user.doseHistory]);
 
     const handleConfirmInjection = () => {
-        const siteId = selectedSiteId || injectionSuggestion.id;
-        const site = getSiteById(siteId);
+        const isOral = medication?.route === 'oral';
+        const siteId = isOral ? null : (selectedSiteId || injectionSuggestion.id);
+        const site = isOral ? null : getSiteById(siteId);
 
         const newRecord = {
             date: new Date().toISOString(),
             dose: user.currentDose,
             medication: user.medicationId,
             siteId: siteId,
-            area: site.area,
-            side: site.side
+            area: site?.area || 'Oral',
+            side: site?.side || 'N/A'
         };
 
         const updatedUser = {
@@ -270,51 +273,53 @@ const Dashboard = ({ user, setUser }) => {
                 </div>
             </div>
 
-            {/* Injection Tracker Card */}
-            <div className="stagger-3 fade-in bg-white p-5 rounded-[32px] shadow-sm border border-slate-100 flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-outfit">Próxima Aplicação</span>
-                        <div className="flex items-center gap-2 mt-1">
-                            <h3 className="text-xl font-black text-slate-800 tracking-tight">
-                                {cycleInfo.daysSinceDose >= 7 ? "Dia de Injetar!" : `Em ${7 - cycleInfo.daysSinceDose} dias`}
-                            </h3>
-                            <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded-full uppercase">
-                                Semana {Math.ceil((Math.abs(new Date() - new Date(user.startDate)) / (1000 * 60 * 60 * 24)) / 7) || 1}
-                            </span>
+            {/* Injection Tracker Card (Only for Injectables) */}
+            {medication?.route === 'injectable' && (
+                <div className="stagger-3 fade-in bg-white p-5 rounded-[32px] shadow-sm border border-slate-100 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-outfit">Próxima Aplicação</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <h3 className="text-xl font-black text-slate-800 tracking-tight">
+                                    {cycleInfo.daysSinceDose >= 7 ? "Dia de Injetar!" : `Em ${7 - cycleInfo.daysSinceDose} dias`}
+                                </h3>
+                                <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded-full uppercase">
+                                    Semana {Math.ceil((Math.abs(new Date() - new Date(user.startDate)) / (1000 * 60 * 60 * 24)) / 7) || 1}
+                                </span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowInjectionModal(true)}
+                            className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand border border-brand-100 hover:bg-brand-100 transition-all active:scale-95"
+                        >
+                            <Syringe size={24} />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Local Sugerido</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">{injectionSuggestion.icon}</span>
+                                <span className="text-sm font-black text-slate-800">{injectionSuggestion.label}</span>
+                            </div>
+                        </div>
+                        <div className="bg-brand-50/50 rounded-2xl p-4 border border-brand-100/50 flex flex-col gap-1">
+                            <span className="text-[9px] font-black text-brand-600 uppercase tracking-widest">Status do Ciclo</span>
+                            <p className={`text-[11px] font-bold ${cycleInfo.color} leading-none`}>{cycleInfo.message}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowInjectionModal(true)}
-                        className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand border border-brand-100 hover:bg-brand-100 transition-all active:scale-95"
-                    >
-                        <Syringe size={24} />
-                    </button>
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Local Sugerido</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg">{injectionSuggestion.icon}</span>
-                            <span className="text-sm font-black text-slate-800">{injectionSuggestion.label}</span>
-                        </div>
-                    </div>
-                    <div className="bg-brand-50/50 rounded-2xl p-4 border border-brand-100/50 flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-brand-600 uppercase tracking-widest">Status do Ciclo</span>
-                        <p className={`text-[11px] font-bold ${cycleInfo.color} leading-none`}>{cycleInfo.message}</p>
-                    </div>
+                    {cycleInfo.daysSinceDose >= 7 && (
+                        <Button
+                            onClick={() => setShowInjectionModal(true)}
+                            className="w-full py-4 rounded-2xl text-sm font-black shadow-lg shadow-brand-500/20 active:scale-[0.98]"
+                        >
+                            Registrar Aplicação de Hoje
+                        </Button>
+                    )}
                 </div>
-
-                {cycleInfo.daysSinceDose >= 7 && (
-                    <Button
-                        onClick={() => setShowInjectionModal(true)}
-                        className="w-full py-4 rounded-2xl text-sm font-black shadow-lg shadow-brand-500/20 active:scale-[0.98]"
-                    >
-                        Registrar Aplicação de Hoje
-                    </Button>
-                )}
-            </div>
+            )}
 
             {/* Intelligence Alerts */}
             <div className="space-y-3">
@@ -435,49 +440,15 @@ const Dashboard = ({ user, setUser }) => {
                     </div>
                 </div>
 
-                <div className="space-y-6 mb-8">
-                    <div className="flex justify-between items-end px-1">
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Novo Registro</label>
-                        <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-                            <span className="text-xs font-black text-brand-600 uppercase tabular-nums">{newWeight} kg</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-[28px] border-2 border-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] focus-within:border-brand-500 transition-all">
-                        <div className="flex-1 relative h-3">
-                            <div className="absolute inset-0 bg-slate-50 rounded-full"></div>
-                            <div
-                                className="absolute inset-0 bg-gradient-to-r from-brand-400 to-brand-600 rounded-full"
-                                style={{ width: `${((parseFloat(newWeight) - 50) / (250 - 50)) * 100}%` }}
-                            ></div>
-                            <input
-                                type="range"
-                                min="50"
-                                max="250"
-                                step="0.1"
-                                value={newWeight || user.currentWeight}
-                                onChange={(e) => setNewWeight(e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
-                            {/* Custom Thumb Visual */}
-                            <div
-                                className="absolute top-1/2 -translate-y-1/2 w-7 h-7 bg-white border-[5px] border-brand-600 rounded-full shadow-xl pointer-events-none transition-transform active:scale-125"
-                                style={{ left: `calc(${((parseFloat(newWeight) - 50) / (250 - 50)) * 100}% - 14px)` }}
-                            ></div>
-                        </div>
-
-                        <div className="w-24 relative flex-shrink-0">
-                            <input
-                                type="number"
-                                value={newWeight}
-                                onChange={(e) => setNewWeight(e.target.value)}
-                                className="w-full bg-white border border-slate-100 rounded-[20px] py-4 text-center font-black text-brand-900 focus:ring-2 focus:ring-brand-500 text-xl shadow-sm tabular-nums"
-                                step="0.1"
-                            />
-                        </div>
-                    </div>
-                </div>
+                <Slider
+                    label="Novo Registro"
+                    value={newWeight}
+                    onChange={setNewWeight}
+                    min={50}
+                    max={250}
+                    step={0.1}
+                    suffix="kg"
+                />
 
                 <div className="flex flex-col gap-3">
                     <Button
@@ -495,35 +466,46 @@ const Dashboard = ({ user, setUser }) => {
                 </div>
             </Modal>
 
-            {/* Modal: Mapa de Injeção */}
-            <Modal isOpen={showInjectionModal} onClose={() => setShowInjectionModal(false)} title="Confirmar Aplicação">
+            {/* Modal: Registro de Dose (Injectável ou Oral) */}
+            <Modal
+                isOpen={showInjectionModal}
+                onClose={() => setShowInjectionModal(false)}
+                title={medication?.route === 'oral' ? "Registrar Dose" : "Confirmar Aplicação"}
+            >
                 <div className="space-y-4">
                     <div className="bg-slate-900 rounded-[28px] p-5 text-white overflow-hidden relative group">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
                         <div className="relative z-10">
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Dose a ser aplicada</p>
-                            <p className="text-2xl font-black">{user.currentDose} <span className="text-sm font-medium text-white/40">({user.medicationId})</span></p>
+                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Dose a ser registrada</p>
+                            <p className="text-2xl font-black flex items-center gap-2">
+                                {medication?.route === 'oral' ? '💊' : '💉'} {user.currentDose}
+                                <span className="text-sm font-medium text-white/40">({medication?.name})</span>
+                            </p>
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">Escolha o Local da Aplicação</label>
-                        <BodySelector
-                            selectedSiteId={selectedSiteId || injectionSuggestion.id}
-                            onSelect={setSelectedSiteId}
-                            suggestedSiteId={injectionSuggestion.id}
-                            lastSiteId={user.doseHistory?.[0]?.siteId}
-                        />
-                    </div>
+                    {medication?.route !== 'oral' && (
+                        <>
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">Escolha o Local da Aplicação</label>
+                                <BodySelector
+                                    selectedSiteId={selectedSiteId || injectionSuggestion.id}
+                                    onSelect={setSelectedSiteId}
+                                    suggestedSiteId={injectionSuggestion.id}
+                                    lastSiteId={user.doseHistory?.[0]?.siteId}
+                                />
+                            </div>
 
-                    {user.doseHistory?.[0]?.siteId === (selectedSiteId || injectionSuggestion.id) && (
-                        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 animate-headShake">
-                            <AlertBox type="warning" title="Atenção" message="Você usou este local na última aplicação. Recomenda-se a rotação." />
-                        </div>
+                            {user.doseHistory?.[0]?.siteId === (selectedSiteId || injectionSuggestion.id) && (
+                                <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 animate-headShake">
+                                    <AlertBox type="warning" title="Atenção" message="Você usou este local na última aplicação. Recomenda-se a rotação." />
+                                </div>
+                            )}
+                        </>
                     )}
 
                     <Button onClick={handleConfirmInjection} className="w-full py-5 rounded-[24px] text-lg font-black shadow-2xl">
-                        Registrar Aplicação ✨
+                        {medication?.route === 'oral' ? "Confirmar Dose ✨" : "Registrar Aplicação ✨"}
                     </Button>
                 </div>
             </Modal>
