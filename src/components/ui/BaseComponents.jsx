@@ -45,13 +45,18 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl animate-slideUp">
-                <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 animate-fadeIn">
+            <div className="bg-white w-full max-w-lg sm:max-w-sm rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl animate-slideUp max-h-[90vh] overflow-y-auto hide-scrollbar relative">
+                {/* Mobile Handle */}
+                <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 sm:hidden -mt-2" />
+
+                <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 py-1">
                     <h3 className="text-xl font-bold text-slate-800">{title}</h3>
                     <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200"><X size={18} /></button>
                 </div>
-                {children}
+                <div className="pb-4">
+                    {children}
+                </div>
             </div>
         </div>,
         document.body

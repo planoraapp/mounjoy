@@ -10,7 +10,13 @@ const Profile = ({ user, onReset, setUser }) => {
     const [showDoseModal, setShowDoseModal] = useState(false);
     const [selectedMed, setSelectedMed] = useState(user.medicationId);
     const [selectedDose, setSelectedDose] = useState(user.currentDose);
+    const [routeFilter, setRouteFilter] = useState('all');
     const [selectedSiteId, setSelectedSiteId] = useState(null);
+
+    const filteredMeds = React.useMemo(() => {
+        if (routeFilter === 'all') return MOCK_MEDICATIONS;
+        return MOCK_MEDICATIONS.filter(m => m.route === routeFilter);
+    }, [routeFilter]);
 
     const injectionSuggestion = React.useMemo(() => {
         return suggestNextInjection(user.doseHistory || []);
@@ -207,17 +213,44 @@ const Profile = ({ user, onReset, setUser }) => {
                 title="Configurar Protocolo"
             >
                 <div className="space-y-6">
+                    {/* Filtro de Via de Administração */}
+                    <div className="flex p-1 bg-slate-100 rounded-2xl">
+                        <button
+                            onClick={() => setRouteFilter('all')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'all' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
+                        >
+                            Todos
+                        </button>
+                        <button
+                            onClick={() => setRouteFilter('injectable')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'injectable' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
+                        >
+                            Injetável
+                        </button>
+                        <button
+                            onClick={() => setRouteFilter('oral')}
+                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'oral' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
+                        >
+                            Via Oral
+                        </button>
+                    </div>
+
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Medicamento</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {MOCK_MEDICATIONS.map(med => (
+                        <div className="flex justify-between items-end mb-3 px-1">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamento</label>
+                            <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase">
+                                {filteredMeds.length} Opções
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
+                            {filteredMeds.map(med => (
                                 <button
                                     key={med.id}
                                     onClick={() => {
                                         setSelectedMed(med.id);
                                         setSelectedDose(med.doses[0]);
                                     }}
-                                    className={`p-3 rounded-2xl border-2 text-sm font-bold transition-all ${selectedMed === med.id
+                                    className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-200 active:scale-95 ${selectedMed === med.id
                                         ? 'border-teal-700 bg-teal-700 text-white shadow-md'
                                         : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200'
                                         }`}
@@ -229,13 +262,16 @@ const Profile = ({ user, onReset, setUser }) => {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Dosagem</label>
+                        <div className="flex justify-between items-end mb-3 px-1">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Dosagem</label>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentMedInfo?.name}</span>
+                        </div>
                         <div className="grid grid-cols-3 gap-2">
                             {currentMedInfo.doses.map(dose => (
                                 <button
                                     key={dose}
                                     onClick={() => setSelectedDose(dose)}
-                                    className={`p-2 rounded-xl border text-xs font-bold transition-all ${selectedDose === dose
+                                    className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-200 active:scale-95 ${selectedDose === dose
                                         ? 'border-teal-700 bg-teal-700 text-white shadow-md'
                                         : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200'
                                         }`}
@@ -246,7 +282,7 @@ const Profile = ({ user, onReset, setUser }) => {
                         </div>
                     </div>
 
-                    <Button onClick={handleUpdateProtocol} className="w-full mt-4">Salvar Alterações</Button>
+                    <Button onClick={handleUpdateProtocol} className="w-full mt-4 py-4 rounded-3xl">Salvar Alterações</Button>
                 </div>
             </Modal>
         </div>
