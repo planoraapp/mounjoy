@@ -71,59 +71,55 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
-export const CircularProgress = ({ value, max, label, icon: Icon, color = "teal" }) => {
+export const VerticalMeter = ({ value, max, label, lines, color = "teal" }) => {
     const percentage = Math.min((value / max) * 100, 100);
-    const radius = 36;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (percentage / 100) * circumference;
 
-    const colors = {
-        teal: "text-teal-500",
-        blue: "text-blue-500",
-        orange: "text-orange-500"
+    const colorMap = {
+        teal:   { bar: "bg-teal-400",   pct: "text-teal-300"   },
+        blue:   { bar: "bg-blue-400",   pct: "text-blue-300"   },
+        orange: { bar: "bg-orange-400", pct: "text-orange-300" },
     };
+    const c = colorMap[color] || colorMap.teal;
+
+    // Use explicit lines if provided, otherwise split every 3 chars
+    const chunks = lines || label.match(/.{1,3}/gu) || [label];
 
     return (
-        <div className="flex flex-col items-center gap-2">
-            <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90">
-                    <circle
-                        cx="48"
-                        cy="48"
-                        r={radius}
-                        fill="transparent"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        className="text-slate-100"
-                    />
-                    <circle
-                        cx="48"
-                        cy="48"
-                        r={radius}
-                        fill="transparent"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        strokeDasharray={circumference}
-                        style={{
-                            strokeDashoffset: offset,
-                            transition: 'stroke-dashoffset 1s ease-out'
-                        }}
-                        className={`${colors[color]} stroke-round`}
-                    />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    {typeof Icon === 'string' ? (
-                        <span className="text-xl mb-0.5">{Icon}</span>
-                    ) : (
-                        <Icon size={20} className={colors[color]} />
-                    )}
-                    <span className="text-[10px] font-black text-slate-800">{percentage.toFixed(0)}%</span>
-                </div>
+        <div className="flex flex-col w-full gap-2">
+            {/* Top row: label (3 lines) + big white number */}
+            <div className="flex items-end justify-between gap-2">
+                <span
+                    className="font-black text-white uppercase block"
+                    style={{ fontSize: '16px', lineHeight: '1' }}
+                >
+                    {chunks.map((chunk, i) => (
+                        <React.Fragment key={i}>
+                            {chunk}{i < chunks.length - 1 && <br />}
+                        </React.Fragment>
+                    ))}
+                </span>
+                <span
+                    className="font-black text-white tabular-nums leading-none"
+                    style={{ fontSize: '48px' }}
+                >
+                    {percentage.toFixed(0)}
+                </span>
             </div>
-            {label && <span className="text-[10px] font-bold text-white uppercase tracking-widest leading-none text-center">{label}</span>}
+
+            {/* Bottom row: horizontal gauge + % on the right */}
+            <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${c.bar}`}
+                        style={{ width: `${percentage}%` }}
+                    />
+                </div>
+                <span className={`text-[10px] font-black ${c.pct}`}>%</span>
+            </div>
         </div>
     );
 };
+
 
 export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
     const percentage = ((parseFloat(value) - min) / (max - min)) * 100;
