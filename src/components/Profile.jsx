@@ -235,58 +235,62 @@ const Profile = ({ user, onReset, setUser }) => {
                         </button>
                     </div>
 
-                    <div>
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamento</label>
-                            <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase">
-                                {filteredMeds.length} Opções
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 justify-items-center">
-                            {filteredMeds.map(med => {
-                                const isSelected = selectedMed === med.id;
-                                return (
-                                    <button
-                                        key={med.id}
-                                        onClick={() => {
-                                            setSelectedMed(med.id);
-                                            setSelectedDose(med.doses[0]);
-                                        }}
-                                        className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isSelected
-                                            ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[140px] scale-100'
-                                            : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[165px] scale-105 opacity-80 hover:opacity-100'
-                                            }`}
-                                        style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-                                    >
-                                        {med.name}
-                                    </button>
-                                );
-                            })}
+                    <div className="grid transition-[grid-template-rows] duration-500 ease-in-out" style={{ gridTemplateRows: '1fr' }}>
+                        <div className="overflow-hidden">
+                            <div className="flex justify-between items-end mb-3 px-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamento</label>
+                                <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase">
+                                    {filteredMeds.length} Opções
+                                </span>
+                            </div>
+                            <div key={routeFilter} className="grid grid-cols-2 gap-3 justify-items-center animate-fadeIn">
+                                {filteredMeds.map(med => {
+                                    const isSelected = selectedMed === med.id;
+                                    return (
+                                        <button
+                                            key={med.id}
+                                            onClick={() => {
+                                                setSelectedMed(med.id);
+                                                setSelectedDose(med.doses[0]);
+                                            }}
+                                            className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isSelected
+                                                ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[140px] scale-100'
+                                                : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[165px] scale-105 opacity-80 hover:opacity-100'
+                                                }`}
+                                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                                        >
+                                            {med.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
-                    <div>
-                        <div className="flex justify-between items-end mb-3 px-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Dosagem</label>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentMedInfo?.name}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 justify-items-center">
-                            {currentMedInfo?.doses.map(dose => {
-                                const isDoseSelected = selectedDose === dose;
-                                return (
-                                    <button
-                                        key={dose}
-                                        onClick={() => setSelectedDose(dose)}
-                                        className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isDoseSelected
-                                            ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[85px] scale-100'
-                                            : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[105px] scale-105 opacity-80 hover:opacity-100'
-                                            }`}
-                                        style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-                                    >
-                                        {dose}
-                                    </button>
-                                );
-                            })}
+                    <div className="grid transition-[grid-template-rows] duration-500 ease-in-out" style={{ gridTemplateRows: '1fr' }}>
+                        <div className="overflow-hidden">
+                            <div className="flex justify-between items-end mb-3 px-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Dosagem</label>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentMedInfo?.name}</span>
+                            </div>
+                            <div key={selectedMed} className="grid grid-cols-3 gap-2 justify-items-center animate-fadeIn">
+                                {currentMedInfo?.doses.map(dose => {
+                                    const isDoseSelected = selectedDose === dose;
+                                    return (
+                                        <button
+                                            key={dose}
+                                            onClick={() => setSelectedDose(dose)}
+                                            className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isDoseSelected
+                                                ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[85px] scale-100'
+                                                : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[105px] scale-105 opacity-80 hover:opacity-100'
+                                                }`}
+                                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                                        >
+                                            {dose}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
