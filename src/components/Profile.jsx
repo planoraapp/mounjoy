@@ -242,22 +242,26 @@ const Profile = ({ user, onReset, setUser }) => {
                                 {filteredMeds.length} Opções
                             </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-                            {filteredMeds.map(med => (
-                                <button
-                                    key={med.id}
-                                    onClick={() => {
-                                        setSelectedMed(med.id);
-                                        setSelectedDose(med.doses[0]);
-                                    }}
-                                    className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-200 active:scale-95 ${selectedMed === med.id
-                                        ? 'border-teal-700 bg-teal-700 text-white shadow-md'
-                                        : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200'
-                                        }`}
-                                >
-                                    {med.name}
-                                </button>
-                            ))}
+                        <div className="grid grid-cols-2 gap-3 justify-items-center">
+                            {filteredMeds.map(med => {
+                                const isSelected = selectedMed === med.id;
+                                return (
+                                    <button
+                                        key={med.id}
+                                        onClick={() => {
+                                            setSelectedMed(med.id);
+                                            setSelectedDose(med.doses[0]);
+                                        }}
+                                        className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isSelected
+                                            ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[140px] scale-100'
+                                            : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[165px] scale-105 opacity-80 hover:opacity-100'
+                                            }`}
+                                        style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                                    >
+                                        {med.name}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -266,19 +270,23 @@ const Profile = ({ user, onReset, setUser }) => {
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Dosagem</label>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentMedInfo?.name}</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            {currentMedInfo.doses.map(dose => (
-                                <button
-                                    key={dose}
-                                    onClick={() => setSelectedDose(dose)}
-                                    className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-200 active:scale-95 ${selectedDose === dose
-                                        ? 'border-teal-700 bg-teal-700 text-white shadow-md'
-                                        : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200'
-                                        }`}
-                                >
-                                    {dose}
-                                </button>
-                            ))}
+                        <div className="grid grid-cols-3 gap-2 justify-items-center">
+                            {currentMedInfo?.doses.map(dose => {
+                                const isDoseSelected = selectedDose === dose;
+                                return (
+                                    <button
+                                        key={dose}
+                                        onClick={() => setSelectedDose(dose)}
+                                        className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isDoseSelected
+                                            ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[85px] scale-100'
+                                            : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[105px] scale-105 opacity-80 hover:opacity-100'
+                                            }`}
+                                        style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                                    >
+                                        {dose}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
