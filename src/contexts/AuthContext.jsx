@@ -7,6 +7,7 @@ import {
     createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import { userService } from '../services/userService';
 
 const AuthContext = createContext();
 
@@ -16,6 +17,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
+    const [userData, setUserData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const signup = (email, password) => {
@@ -35,16 +37,32 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        let unsubscribeUser = null;
+
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
-            setLoading(false);
+
+            if (user) {
+                // Subscribe to Firestore user document
+                unsubscribeUser = userService.subscribeToUser(user.uid, (data) => {
+                    setUserData(data);
+                    setLoading(false);
+                });
+            } else {
+                setUserData(null);
+                setLoading(false);
+            }
         });
 
-        return unsubscribe;
+        return () => {
+            unsubscribeAuth();
+            if (unsubscribeUser) unsubscribeUser();
+        };
     }, []);
 
     const value = {
         currentUser,
+        userData,
         login,
         signup,
         logout,

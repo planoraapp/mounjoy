@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button, Input } from './ui/BaseComponents';
-import { Mail, Lock, Chrome, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { Mail, Lock, Chrome, ArrowRight, UserPlus, LogIn, ChevronLeft } from 'lucide-react';
 
-const Login = () => {
+const Login = ({ onBack }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -48,6 +48,15 @@ const Login = () => {
             {/* Background elements */}
             <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-indigo-100 rounded-full blur-[80px] opacity-60"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-brand-100 rounded-full blur-[100px] opacity-40"></div>
+
+            {/* Back Button */}
+            <button
+                onClick={onBack}
+                className="absolute top-8 left-8 p-3 rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-slate-600 hover:shadow-md transition-all active:scale-95 z-50"
+                title="Voltar"
+            >
+                <ChevronLeft size={24} />
+            </button>
 
             <div className="w-full max-w-md z-10">
                 <div className="flex flex-col items-center mb-10">

@@ -11,6 +11,8 @@ import LandingPage from './components/LandingPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 
+import { userService } from './services/userService';
+
 const NavItem = ({ icon: Icon, active, onClick }) => (
     <button
         onClick={onClick}
@@ -47,25 +49,49 @@ const USFlag = () => (
 );
 
 const MainApp = () => {
-    const { currentUser, logout } = useAuth();
-    const [user, setUser] = useState(null);
+    const { currentUser, userData, logout } = useAuth();
     const [activeTab, setActiveTab] = useState('home');
-    const [loading, setLoading] = useState(true);
     const [startedOnboarding, setStartedOnboarding] = useState(false);
     const [language, setLanguage] = useState('pt');
+    const [isMigrating, setIsMigrating] = useState(false);
 
+    // Migration Bridge: LocalStorage -> Firestore
     useEffect(() => {
-        // We still use local storage for profile data for now, 
-        // but we reference the firebase uid to keep it isolated per user
-        const savedUser = localStorage.getItem(`mounjoy_user_${currentUser?.uid}`);
-        if (savedUser) {
-            const parsed = JSON.parse(savedUser);
-            setUser(parsed);
-        }
-        setLoading(false);
-    }, [currentUser]);
+        const performMigration = async () => {
+            // If we have a user logged in but no data in Firestore yet
+            if (currentUser && !userData && !isMigrating) {
+                setIsMigrating(true);
 
-    const handleOnboardingComplete = (data) => {
+                // Check user-specific key first, then legacy key
+                const userSpecificData = localStorage.getItem(`mounjoy_user_${currentUser.uid}`);
+                const legacyData = localStorage.getItem('mounjoy_user2');
+                const dataToMigrate = userSpecificData || legacyData;
+
+                if (dataToMigrate) {
+                    try {
+                        const parsed = JSON.parse(dataToMigrate);
+                        console.log("Migrating legacy data to Cloud Firestore...");
+
+                        await userService.saveUserProfile(currentUser.uid, {
+                            ...parsed,
+                            uid: currentUser.uid,
+                            email: currentUser.email || parsed.email || ''
+                        });
+
+                        // Clean up legacy key if it exists
+                        if (legacyData) localStorage.removeItem('mounjoy_user2');
+                    } catch (e) {
+                        console.error("Migration failed:", e);
+                    }
+                }
+                setIsMigrating(false);
+            }
+        };
+
+        performMigration();
+    }, [currentUser, userData, isMigrating]);
+
+    const handleOnboardingComplete = async (data) => {
         const now = new Date().toISOString();
         const newUser = {
             ...data,
@@ -91,18 +117,22 @@ const MainApp = () => {
                 waterGoal: 2.5
             }
         };
-        setUser(newUser);
-        localStorage.setItem(`mounjoy_user_${currentUser.uid}`, JSON.stringify(newUser));
+        await userService.saveUserProfile(currentUser.uid, newUser);
+    };
+
+    const handleUpdateUser = async (newData) => {
+        // Support both direct object updates and functional updates (like setState)
+        const updatedData = typeof newData === 'function' ? newData(userData) : newData;
+        await userService.saveUserProfile(currentUser.uid, updatedData);
     };
 
     const handleReset = async () => {
         await logout();
-        setUser(null);
-        setActiveTab('home');
-        setStartedOnboarding(false);
+        // Local state cleanup is handled by AppContent switching back to Login
     };
 
-    if (loading) return null;
+    // Use userData from AuthContext as the source of truth
+    const user = userData;
 
     if (!user && !startedOnboarding) {
         return <LandingPage onStart={() => setStartedOnboarding(true)} />;
@@ -114,12 +144,12 @@ const MainApp = () => {
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'home': return <Dashboard user={user} setUser={setUser} />;
-            case 'logs': return <Logs user={user} />;
-            case 'calendar': return <CalendarView user={user} />;
+            case 'home': return <Dashboard user={user} setUser={handleUpdateUser} />;
+            case 'logs': return <Logs user={user} setUser={handleUpdateUser} />;
+            case 'calendar': return <CalendarView user={user} setUser={handleUpdateUser} />;
             case 'charts': return <Charts user={user} />;
-            case 'profile': return <Profile user={user} onReset={handleReset} />;
-            default: return <Dashboard user={user} setUser={setUser} />;
+            case 'profile': return <Profile user={user} onReset={handleReset} setUser={handleUpdateUser} />;
+            default: return <Dashboard user={user} setUser={handleUpdateUser} />;
         }
     };
 
@@ -180,7 +210,33 @@ const MainApp = () => {
 
 const AppContent = () => {
     const { currentUser } = useAuth();
-    return currentUser ? <MainApp /> : <Login />;
+    const [startedOnboarding, setStartedOnboarding] = useState(false);
+    const [showLogin, setShowLogin] = useState(false);
+
+    // If logged in, we go straight to the app
+    if (currentUser) {
+        return <MainApp />;
+    }
+
+    // If user clicked "Entrar", show the login screen
+    if (showLogin) {
+        return <Login onBack={() => setShowLogin(false)} />;
+    }
+
+    // If user clicked "Começar" on landing, show onboarding
+    if (startedOnboarding) {
+        return <Onboarding onComplete={() => setStartedOnboarding(false)} />;
+        // Note: In a real app, onboarding completion would ideally lead to account creation 
+        // to persist data to Firestore, but we keep local-first for "guest" mode for now.
+    }
+
+    // Default: Show the Landing Page
+    return (
+        <LandingPage
+            onStart={() => setStartedOnboarding(true)}
+            onLogin={() => setShowLogin(true)}
+        />
+    );
 };
 
 const App = () => {

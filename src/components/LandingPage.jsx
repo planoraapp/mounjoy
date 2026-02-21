@@ -2,9 +2,23 @@ import React from 'react';
 import { Activity, ShieldCheck, Zap, Heart, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import { Button } from './ui/BaseComponents';
 
-const LandingPage = ({ onStart }) => {
+const LandingPage = ({ onStart, onLogin }) => {
     return (
         <div className="min-h-screen bg-[#f8fafc] overflow-x-hidden font-outfit selection:bg-brand-100">
+            {/* Minimalist Landing Header */}
+            <header className="px-6 py-6 flex justify-between items-center max-w-6xl mx-auto absolute top-0 left-0 right-0 z-50">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center text-white font-black text-xl">M</div>
+                    <span className="text-xl font-bold text-slate-900 tracking-tight">Mounjoy</span>
+                </div>
+                <button
+                    onClick={onLogin}
+                    className="px-6 py-2.5 rounded-full bg-white/80 backdrop-blur-md border border-slate-200 text-slate-600 font-bold text-sm shadow-sm hover:shadow-md hover:bg-white transition-all active:scale-95"
+                >
+                    Entrar
+                </button>
+            </header>
+
             {/* Decorative Background Elements */}
             <div className="fixed top-[-10%] right-[-10%] w-[500px] h-[500px] bg-brand-100/30 rounded-full blur-[120px] pointer-events-none"></div>
             <div className="fixed bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-100/20 rounded-full blur-[120px] pointer-events-none"></div>
