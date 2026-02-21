@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, PenTool, Image as ImageIcon, Scale, BookOpen, Droplet, Activity, X } from 'lucide-react';
-import { Button } from './ui/BaseComponents';
 
-const CalendarView = ({ user }) => {
+const CalendarView = ({ user, setUser }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
+    const [newThought, setNewThought] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isFullscreenPhoto, setIsFullscreenPhoto] = useState(false);
+    const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
     const prevMonth = () => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
@@ -26,9 +29,38 @@ const CalendarView = ({ user }) => {
     const firstDay = getFirstDayOfMonth(currentMonth);
     const monthName = currentMonth.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
-    // Helper to check if a specific day has a weight logged (using history array and logic if we had dates, but we'll mock it based on history length for now)
-    // Actually, mounjoy_user2 only has an array of weights `history` and `lastWeightDate`, not a full timeseries.
-    // For visual purposes, we'll just style some days.
+    const getDayData = (date) => {
+        const dateKey = date.toISOString().split('T')[0];
+        const intake = user.dailyIntakeHistory?.[dateKey] || { water: 0, protein: 0 };
+        const weightEntry = user.measurements?.find(m => m.date.startsWith(dateKey));
+        return { ...intake, weight: weightEntry?.weight };
+    };
+
+    const handleSaveThought = async () => {
+        if (!newThought.trim()) return;
+        setIsSaving(true);
+        const now = new Date().toISOString();
+        const updatedUser = {
+            ...user,
+            thoughtLogs: [
+                { text: newThought, date: now },
+                ...(user.thoughtLogs || [])
+            ]
+        };
+        await setUser(updatedUser);
+        setNewThought('');
+        setIsSaving(false);
+    };
+
+    const nextPhoto = (e) => {
+        e.stopPropagation();
+        setCurrentPhotoIndex((prev) => (prev + 1) % user.photos.length);
+    };
+
+    const prevPhoto = (e) => {
+        e.stopPropagation();
+        setCurrentPhotoIndex((prev) => (prev - 1 + user.photos.length) % user.photos.length);
+    };
 
     return (
         <div className="flex flex-col gap-6 pb-24">
@@ -44,29 +76,69 @@ const CalendarView = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Photo Miniatures */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><ImageIcon size={12} /> Galeria de Evolução</span>
-                        <span className="text-[10px] font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-full">{user.photos?.length || 0} fotos</span>
-                    </div>
-                    {user.photos && user.photos.length > 0 ? (
-                        <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
-                            {user.photos.map((photo, idx) => (
-                                <div key={idx} className="w-20 h-20 rounded-2xl bg-slate-100 shrink-0 snap-center overflow-hidden border-2 border-white shadow-sm relative">
-                                    <img src={typeof photo === 'string' ? photo : photo.url} alt={`Evolução ${idx}`} className="w-full h-full object-cover" />
-                                    <div className="absolute bottom-1 right-1 text-[8px] font-black text-white bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                        {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(photo.date || new Date())).replace('/', '-')}
-                                    </div>
+                {/* Photo & Weight Section */}
+                <div className="flex gap-4 mb-8 items-stretch">
+                    {/* Gallery (2/3) */}
+                    <div className="flex-[2] min-w-0">
+                        <div className="flex items-center justify-between mb-3 px-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><ImageIcon size={12} /> Galeria</span>
+                            <span className="text-[10px] font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-full">{user.photos?.length || 0}</span>
+                        </div>
+                        {user.photos && user.photos.length > 0 ? (
+                            <div className="rounded-2xl max-w-[270px] overflow-hidden">
+                                <div className="flex gap-2 overflow-x-auto snap-x hide-scrollbar py-1">
+                                    {[...user.photos].reverse().map((photo, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => {
+                                                setCurrentPhotoIndex(user.photos.length - 1 - idx);
+                                                setIsFullscreenPhoto(true);
+                                            }}
+                                            className="w-20 h-20 rounded-2xl bg-slate-100 shrink-0 snap-center overflow-hidden border-2 border-white shadow-sm relative cursor-pointer active:scale-95 transition-transform"
+                                        >
+                                            <img src={typeof photo === 'string' ? photo : photo.url} alt={`Evolução ${idx}`} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-1 right-1 text-[8px] font-black text-white bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                                {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(photo.date || new Date())).replace('/', '-')}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            </div>
+                        ) : (
+                            <div className="h-20 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
+                                <ImageIcon size={16} className="mb-1 opacity-50" />
+                                <span className="text-[10px] font-semibold">Sem fotos</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Metrics Snapshot (1/3) */}
+                    <div className="flex-1 flex flex-col justify-center items-end text-right pr-4">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status do Dia</span>
+                        <div className="text-3xl font-black text-slate-900 tabular-nums tracking-tighter leading-none mb-3">
+                            {selectedDate ? (getDayData(selectedDate).weight || '--') : (user.currentWeight || '--')}
+                            <span className="text-sm ml-1 text-brand font-bold">kg</span>
                         </div>
-                    ) : (
-                        <div className="w-full py-6 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                            <ImageIcon size={20} className="mb-2 opacity-50" />
-                            <span className="text-xs font-semibold">Nenhuma foto registrada</span>
+
+                        <div className="flex flex-col gap-1 items-end">
+                            <div className="flex items-center gap-1.5 text-blue-500">
+                                <span className="text-[10px] font-black tabular-nums">
+                                    {selectedDate ? (getDayData(selectedDate).water?.toFixed(1) || '0.0') : '0.0'}L
+                                </span>
+                                <Droplet size={10} strokeWidth={3} />
+                            </div>
+                            <div className="flex items-center gap-1.5 text-orange-500">
+                                <span className="text-[10px] font-black tabular-nums">
+                                    {selectedDate ? (getDayData(selectedDate).protein || '0') : '0'}g
+                                </span>
+                                <Activity size={10} strokeWidth={3} />
+                            </div>
                         </div>
-                    )}
+
+                        <span className="text-[9px] font-bold text-slate-400 uppercase mt-3 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {selectedDate ? `Dia ${selectedDate.getDate()}` : 'Resumo'}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Calendar Widget */}
@@ -96,24 +168,24 @@ const CalendarView = ({ user }) => {
                             const day = i + 1;
                             const isToday = day === new Date().getDate() && currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear();
 
-                            // Mocking some logged weights for visual flair (every 5th day)
-                            const hasLoggedWeight = day % 5 === 0 && day < new Date().getDate();
+                            const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+                            const dayData = getDayData(dayDate);
+                            const hasLoggedWeight = !!dayData.weight;
 
                             return (
                                 <div
                                     key={day}
                                     onClick={() => {
-                                        const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                                        setSelectedDate(prev => prev && prev.getTime() === clickedDate.getTime() ? null : clickedDate);
+                                        setSelectedDate(prev => prev && prev.getTime() === dayDate.getTime() ? null : dayDate);
                                     }}
-                                    className={`h-10 rounded-xl flex flex-col items-center justify-center text-sm font-bold relative transition-all cursor-pointer hover:scale-110 scale-100 ${selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth.getMonth()
-                                            ? 'bg-slate-800 text-white shadow-md'
-                                            : isToday ? 'bg-indigo-500 text-white shadow-md' :
-                                                hasLoggedWeight ? 'bg-indigo-50 text-indigo-700 font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                                    className={`h-10 rounded-xl flex flex-col items-center justify-center text-sm font-bold relative transition-all cursor-pointer hover:scale-110 scale-100 ${selectedDate && selectedDate.getTime() === dayDate.getTime()
+                                        ? 'bg-slate-800 text-white shadow-md'
+                                        : isToday ? 'bg-indigo-500 text-white shadow-md' :
+                                            hasLoggedWeight ? 'bg-indigo-50 text-indigo-700 font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     {day}
-                                    {hasLoggedWeight && <div className={`absolute bottom-1 w-1 h-1 rounded-full ${selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentMonth.getMonth() ? 'bg-white' : 'bg-indigo-500'}`}></div>}
+                                    {hasLoggedWeight && <div className={`absolute bottom-1 w-1 h-1 rounded-full ${selectedDate && selectedDate.getTime() === dayDate.getTime() ? 'bg-white' : 'bg-indigo-500'}`}></div>}
                                 </div>
                             );
                         })}
@@ -138,26 +210,21 @@ const CalendarView = ({ user }) => {
                                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-2">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Scale size={14} /> Peso</span>
                                     <span className="text-xl font-black tabular-nums">
-                                        {selectedDate.getDate() % 5 === 0 ? "82.4 kg" : "--"}
+                                        {getDayData(selectedDate).weight ? `${getDayData(selectedDate).weight} kg` : "--"}
                                     </span>
                                 </div>
                                 <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 flex flex-col gap-2">
                                     <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5"><Droplet size={14} /> Hidratação</span>
                                     <span className="text-xl font-black tabular-nums text-blue-900">
-                                        {selectedDate.getDate() % 2 === 0 ? "2.5 L" : "1.2 L"}
+                                        {getDayData(selectedDate).water > 0 ? `${getDayData(selectedDate).water} L` : "--"}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex flex-col gap-2 group cursor-pointer hover:bg-orange-100/70 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1.5"><Activity size={14} /> Atividade</span>
-                                    <ChevronRight size={14} className="text-orange-300 group-hover:text-orange-500 transition-colors" />
-                                </div>
-                                <span className="text-sm font-bold text-orange-900 leading-tight">
-                                    {selectedDate.getDate() % 3 === 0
-                                        ? "Caminhada leve registrada (30 min)."
-                                        : "Nenhum exercício registrado neste dia."}
+                            <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex flex-col gap-2">
+                                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1.5"><Activity size={14} /> Proteína</span>
+                                <span className="text-xl font-black tabular-nums text-orange-900">
+                                    {getDayData(selectedDate).protein > 0 ? `${getDayData(selectedDate).protein} g` : "--"}
                                 </span>
                             </div>
                         </div>
@@ -172,67 +239,49 @@ const CalendarView = ({ user }) => {
                         <BookOpen size={18} className="text-slate-500" />
                         <h3 className="font-bold text-slate-800">Diário de Pensamentos</h3>
                     </div>
-                    <button className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shadow-sm border border-slate-100 hover:bg-slate-100 transition-colors">
-                        <PenTool size={14} />
-                    </button>
+                    <div className="bg-brand-50 text-brand text-[10px] font-black px-2 py-1 rounded-lg uppercase">
+                        Real-time Cloud
+                    </div>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                    <div className="relative">
+                        <textarea
+                            value={newThought}
+                            onChange={(e) => setNewThought(e.target.value)}
+                            placeholder="Como você está se sentindo hoje? Algum efeito colateral ou vitória?"
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-700 min-h-[100px] focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
+                        />
+                        <button
+                            onClick={handleSaveThought}
+                            disabled={!newThought.trim() || isSaving}
+                            className={`absolute bottom-3 right-3 p-3 rounded-xl shadow-lg transition-all active:scale-95 ${!newThought.trim() || isSaving ? 'bg-slate-200 text-slate-400' : 'bg-brand text-white hover:bg-brand-600'}`}
+                        >
+                            <PenTool size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
-                    {/* Mock thought logs */}
-                    <div className="w-full bg-slate-50 border-none rounded-2xl p-4 transition-shadow relative overflow-hidden group">
-                        <p className="text-sm text-slate-700 italic mb-2">"Hoje senti muito menos fome durante a tarde, consegui focar melhor no trabalho."</p>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ontem, 18:30</span>
-                    </div>
-
-                    <div className="w-full bg-slate-50 border-none rounded-2xl p-4 transition-shadow relative overflow-hidden group">
-                        <p className="text-sm text-slate-700 italic mb-2">"Tive um leve enjoo de manhã, preciso lembrar de comer devagar."</p>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">19 Fev, 09:15</span>
-                    </div>
+                    {user.thoughtLogs && user.thoughtLogs.length > 0 ? (
+                        user.thoughtLogs.map((log, idx) => (
+                            <div key={idx} className="w-full bg-slate-50 border border-slate-100/50 rounded-2xl p-4 transition-all hover:bg-slate-100/50 relative overflow-hidden group">
+                                <p className="text-sm text-slate-700 italic mb-2 leading-relaxed">"{log.text}"</p>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(log.date))}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-center py-8 opacity-40">
+                            <PenTool size={32} className="mx-auto mb-2" />
+                            <p className="text-xs font-bold uppercase tracking-widest">Nada registrado ainda</p>
+                        </div>
+                    )}
                 </div>
-
-                <Button className="w-full mt-4 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-bold shadow-md">
-                    Registrar Pensamento
-                </Button>
             </div>
-
-            {/* Day Metrics Modal */}
-            <Modal
-                isOpen={!!selectedDate}
-                onClose={() => setSelectedDate(null)}
-                title={selectedDate ? new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(selectedDate) : ''}
-            >
-                <div className="flex flex-col gap-4 text-slate-800">
-                    <p className="text-sm text-slate-500 mb-2">Visão geral das métricas registradas neste dia.</p>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-2">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Scale size={14} /> Peso</span>
-                            <span className="text-xl font-black tabular-nums">
-                                {selectedDate && selectedDate.getDate() % 5 === 0 ? "82.4 kg" : "--"}
-                            </span>
-                        </div>
-                        <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 flex flex-col gap-2">
-                            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1.5"><Droplet size={14} /> Hidratação</span>
-                            <span className="text-xl font-black tabular-nums text-blue-900">
-                                {selectedDate && selectedDate.getDate() % 2 === 0 ? "2.5 L" : "1.2 L"}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex flex-col gap-2">
-                        <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1.5"><Activity size={14} /> Atividade</span>
-                        <span className="text-sm font-bold text-orange-900 leading-tight">
-                            {selectedDate && selectedDate.getDate() % 3 === 0
-                                ? "Caminhada leve registrada (30 min)."
-                                : "Nenhum exercício registrado neste dia."}
-                        </span>
-                    </div>
-
-                    <Button onClick={() => setSelectedDate(null)} className="w-full py-4 rounded-[20px] text-sm mt-2">
-                        Fechar Histórico
-                    </Button>
-                </div>
-            </Modal>
 
             {/* Additional Metrics snippet could go here */}
             <style>{`
@@ -244,6 +293,62 @@ const CalendarView = ({ user }) => {
                     scrollbar-width: none;
                 }
             `}</style>
+
+            {/* Fullscreen Photo Overlay */}
+            {isFullscreenPhoto && user.photos && user.photos.length > 0 && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
+                    onClick={() => setIsFullscreenPhoto(false)}
+                >
+                    <div
+                        className="relative w-full h-[80vh] max-w-lg bg-slate-100 rounded-[40px] overflow-hidden shadow-2xl flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <img
+                            src={typeof (user.photos[currentPhotoIndex]) === 'string' ? (user.photos[currentPhotoIndex]) : (user.photos[currentPhotoIndex])?.url}
+                            alt="Evolução Ampliada"
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+
+                        {/* Pagination Overlay */}
+                        <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-4 z-10 w-full px-6">
+                            <span className="text-white text-xs font-black tracking-widest drop-shadow-md bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                                {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(user.photos[currentPhotoIndex].date || new Date()))}
+                            </span>
+
+                            <div className="flex w-full items-center justify-between">
+                                {user.photos.length > 1 ? (
+                                    <button onClick={prevPhoto} className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center hover:bg-white/20 transition-colors text-white z-20 shrink-0">
+                                        <ChevronLeft size={28} />
+                                    </button>
+                                ) : <div className="w-12 shrink-0"></div>}
+
+                                <div className="flex justify-center gap-2 flex-1 mx-4">
+                                    {user.photos.map((_, i) => (
+                                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${currentPhotoIndex === i ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}></div>
+                                    ))}
+                                </div>
+
+                                {user.photos.length > 1 ? (
+                                    <button onClick={nextPhoto} className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center hover:bg-white/20 transition-colors text-white z-20 shrink-0">
+                                        <ChevronRight size={28} />
+                                    </button>
+                                ) : <div className="w-12 shrink-0"></div>}
+                            </div>
+                        </div>
+
+                        {/* Close button */}
+                        <button
+                            onClick={() => setIsFullscreenPhoto(false)}
+                            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/40 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

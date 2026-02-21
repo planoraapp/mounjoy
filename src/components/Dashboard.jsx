@@ -4,6 +4,8 @@ import { Modal, Input, Button, VerticalMeter, Slider } from './ui/BaseComponents
 import AlertBox from './ui/AlertBox';
 import BodySelector from './ui/BodySelector';
 import { suggestNextInjection, getSiteById } from '../services/InjectionService';
+import { ReminderService } from '../services/ReminderService';
+import DoseAlert from './ui/DoseAlert';
 import { MOCK_MEDICATIONS } from '../constants/medications';
 import scalerImg from '../public/scaler.png';
 import waterImg from '../public/water.png';
@@ -59,7 +61,7 @@ const ConfettiExplosion = React.memo(() => {
     );
 });
 
-const Dashboard = ({ user, setUser }) => {
+const Dashboard = ({ user, setUser, setActiveTab }) => {
     const medication = MOCK_MEDICATIONS.find(m => m.id === user.medicationId);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [newWeight, setNewWeight] = useState('');
@@ -81,23 +83,25 @@ const Dashboard = ({ user, setUser }) => {
     const proteinPercentage = Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100);
     const isProteinComplete = proteinPercentage >= 100;
 
+    const reminder = ReminderService.calculateNextDose(user.doseHistory || []);
+    const timeRemaining = ReminderService.formatTimeRemaining(reminder.daysRemaining, reminder.status);
+
     const updateIntake = (type, amount) => {
-        const currentAmount = dailyData[type];
+        const currentAmount = dailyData[type] || 0;
         const newAmount = Math.max(0, currentAmount + amount);
 
-        const updatedUser = {
-            ...user,
-            dailyIntakeHistory: {
-                ...user.dailyIntakeHistory,
-                [today]: {
-                    ...dailyData,
-                    [today]: undefined, // cleanup if any artifact
-                    [type]: parseFloat(newAmount.toFixed(1))
-                }
+        const updatedHistory = {
+            ...user.dailyIntakeHistory,
+            [today]: {
+                ...(user.dailyIntakeHistory?.[today] || {}),
+                [type]: parseFloat(newAmount.toFixed(1))
             }
         };
-        setUser(updatedUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
+
+        setUser({
+            ...user,
+            dailyIntakeHistory: updatedHistory
+        });
 
         setAnimatingAsset(type);
         setTimeout(() => setAnimatingAsset(null), 300);
@@ -106,14 +110,20 @@ const Dashboard = ({ user, setUser }) => {
     const updateWeight = () => {
         if (!newWeight) return;
         const weightValue = parseFloat(newWeight);
+        const now = new Date().toISOString();
+
         const updatedUser = {
             ...user,
             currentWeight: weightValue,
-            history: [...user.history, weightValue],
-            lastWeightDate: new Date().toISOString()
+            history: [...(user.history || []), weightValue],
+            lastWeightDate: now,
+            measurements: [
+                ...(user.measurements || []),
+                { date: now, weight: weightValue }
+            ]
         };
+
         setUser(updatedUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
         setShowWeightModal(false);
         setNewWeight('');
     };
@@ -325,6 +335,8 @@ const Dashboard = ({ user, setUser }) => {
 
     return (
         <div className="space-y-6 pb-6">
+            <DoseAlert reminder={reminder} onAction={() => setActiveTab('profile')} />
+
             {/* Health Insights Section */}
             {(healthInsights.length > 0) && (
                 <div className="space-y-3 stagger-1 fade-in">
@@ -474,7 +486,7 @@ const Dashboard = ({ user, setUser }) => {
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-outfit">Próxima Aplicação</span>
                             <div className="flex items-center gap-2 mt-1">
                                 <h3 className="text-xl font-black text-slate-800 tracking-tight">
-                                    {cycleInfo.daysSinceDose >= 7 ? "Dia de Injetar!" : `Em ${7 - cycleInfo.daysSinceDose} dias`}
+                                    {timeRemaining === 'Hoje!' ? "Dia de Injetar!" : `Em ${timeRemaining}`}
                                 </h3>
                                 <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded-full uppercase">
                                     Semana {Math.ceil((Math.abs(new Date() - new Date(user.startDate)) / (1000 * 60 * 60 * 24)) / 7) || 1}

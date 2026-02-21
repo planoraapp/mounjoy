@@ -101,9 +101,9 @@ const LandingPage = ({ onStart, onLogin }) => {
                     <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mx-auto text-brand mb-4">
                         <Info size={40} />
                     </div>
-                    <h3 className="text-2xl font-bold text-slate-800 md:text-3xl">Estética "Medical Spa"</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 md:text-3xl">Sua Jornada Elevada</h3>
                     <p className="text-lg text-slate-500 leading-relaxed font-medium max-w-2xl mx-auto">
-                        Uma interface desenhada especificamente para reduzir a ansiedade comum no tratamento. Tons suaves de Teal e formas orgânicas para uma jornada visualmente calma, premium e profissional.
+                        Uma experiência desenhada para acompanhar sua evolução com clareza e elegância. Focamos em transformar a complexidade do tratamento em uma jornada visualmente calma, premium e focada no seu bem-estar.
                     </p>
                 </div>
             </section>

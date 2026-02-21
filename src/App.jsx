@@ -48,29 +48,28 @@ const USFlag = () => (
     </svg>
 );
 
-const MainApp = () => {
+const MainApp = ({ guestUser, setGuestUser }) => {
     const { currentUser, userData, logout } = useAuth();
     const [activeTab, setActiveTab] = useState('home');
-    const [startedOnboarding, setStartedOnboarding] = useState(false);
     const [language, setLanguage] = useState('pt');
     const [isMigrating, setIsMigrating] = useState(false);
 
     // Migration Bridge: LocalStorage -> Firestore
     useEffect(() => {
         const performMigration = async () => {
-            // If we have a user logged in but no data in Firestore yet
             if (currentUser && !userData && !isMigrating) {
                 setIsMigrating(true);
 
-                // Check user-specific key first, then legacy key
+                // Prioritize guest storage, then user-specific, then legacy
+                const guestData = localStorage.getItem('mounjoy_guest_user');
                 const userSpecificData = localStorage.getItem(`mounjoy_user_${currentUser.uid}`);
                 const legacyData = localStorage.getItem('mounjoy_user2');
-                const dataToMigrate = userSpecificData || legacyData;
+                const dataToMigrate = guestData || userSpecificData || legacyData;
 
                 if (dataToMigrate) {
                     try {
                         const parsed = JSON.parse(dataToMigrate);
-                        console.log("Migrating legacy data to Cloud Firestore...");
+                        console.log("Migrating local data to Cloud Firestore...");
 
                         await userService.saveUserProfile(currentUser.uid, {
                             ...parsed,
@@ -78,7 +77,11 @@ const MainApp = () => {
                             email: currentUser.email || parsed.email || ''
                         });
 
-                        // Clean up legacy key if it exists
+                        // Clean up
+                        if (guestData) {
+                            localStorage.removeItem('mounjoy_guest_user');
+                            setGuestUser(null);
+                        }
                         if (legacyData) localStorage.removeItem('mounjoy_user2');
                     } catch (e) {
                         console.error("Migration failed:", e);
@@ -89,67 +92,42 @@ const MainApp = () => {
         };
 
         performMigration();
-    }, [currentUser, userData, isMigrating]);
-
-    const handleOnboardingComplete = async (data) => {
-        const now = new Date().toISOString();
-        const newUser = {
-            ...data,
-            uid: currentUser.uid,
-            email: currentUser.email,
-            currentWeight: parseFloat(data.startWeight),
-            history: [parseFloat(data.startWeight)],
-            startDate: now,
-            lastWeightDate: now,
-            doseHistory: [{
-                date: now,
-                dose: data.currentDose,
-                medication: data.medicationId,
-                site: 'Não registrado'
-            }],
-            sideEffectsLogs: [],
-            measurements: [],
-            dailyIntakeHistory: {},
-            isMaintenance: false,
-            settings: {
-                remindersEnabled: true,
-                proteinGoal: 100,
-                waterGoal: 2.5
-            }
-        };
-        await userService.saveUserProfile(currentUser.uid, newUser);
-    };
+    }, [currentUser, userData, isMigrating, setGuestUser]);
 
     const handleUpdateUser = async (newData) => {
-        // Support both direct object updates and functional updates (like setState)
-        const updatedData = typeof newData === 'function' ? newData(userData) : newData;
-        await userService.saveUserProfile(currentUser.uid, updatedData);
+        const currentUserData = userData || guestUser;
+        const updatedData = typeof newData === 'function' ? newData(currentUserData) : newData;
+
+        if (currentUser) {
+            await userService.saveUserProfile(currentUser.uid, updatedData);
+        } else {
+            setGuestUser(updatedData);
+            localStorage.setItem('mounjoy_guest_user', JSON.stringify(updatedData));
+        }
     };
 
     const handleReset = async () => {
-        await logout();
-        // Local state cleanup is handled by AppContent switching back to Login
+        if (currentUser) {
+            await logout();
+        } else {
+            localStorage.removeItem('mounjoy_guest_user');
+            setGuestUser(null);
+        }
     };
 
-    // Use userData from AuthContext as the source of truth
-    const user = userData;
+    // Unified user object
+    const user = userData || guestUser;
 
-    if (!user && !startedOnboarding) {
-        return <LandingPage onStart={() => setStartedOnboarding(true)} />;
-    }
-
-    if (!user && startedOnboarding) {
-        return <Onboarding onComplete={handleOnboardingComplete} />;
-    }
+    if (!user) return null; // Should not happen with current routing
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'home': return <Dashboard user={user} setUser={handleUpdateUser} />;
+            case 'home': return <Dashboard user={user} setUser={handleUpdateUser} setActiveTab={setActiveTab} />;
             case 'logs': return <Logs user={user} setUser={handleUpdateUser} />;
             case 'calendar': return <CalendarView user={user} setUser={handleUpdateUser} />;
             case 'charts': return <Charts user={user} />;
             case 'profile': return <Profile user={user} onReset={handleReset} setUser={handleUpdateUser} />;
-            default: return <Dashboard user={user} setUser={handleUpdateUser} />;
+            default: return <Dashboard user={user} setUser={handleUpdateUser} setActiveTab={setActiveTab} />;
         }
     };
 
@@ -161,7 +139,7 @@ const MainApp = () => {
         return Math.ceil(diffDays / 7);
     };
 
-    const medicationName = user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1);
+    const medicationName = user.medicationId ? (user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1)) : 'Protocolo';
 
     return (
         <div className="min-h-screen bg-transparent pb-24 selection:bg-brand-100">
@@ -188,7 +166,7 @@ const MainApp = () => {
                         className="w-12 h-12 bg-white rounded-2xl shadow-soft flex items-center justify-center border border-slate-100 cursor-pointer hover:shadow-lg transition-shadow"
                         onClick={() => setActiveTab('profile')}
                     >
-                        <span className="text-brand-600 font-bold text-lg">{user.name.charAt(0).toUpperCase()}</span>
+                        <span className="text-brand-600 font-bold text-lg">{user.name?.charAt(0).toUpperCase() || '?'}</span>
                     </div>
                 </div>
             </header>
@@ -209,13 +187,59 @@ const MainApp = () => {
 };
 
 const AppContent = () => {
-    const { currentUser } = useAuth();
+    const { currentUser, userData } = useAuth();
     const [startedOnboarding, setStartedOnboarding] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
+    const [guestUser, setGuestUser] = useState(() => {
+        const saved = localStorage.getItem('mounjoy_guest_user');
+        return saved ? JSON.parse(saved) : null;
+    });
 
-    // If logged in, we go straight to the app
-    if (currentUser) {
-        return <MainApp />;
+    const handleOnboardingComplete = (data) => {
+        const now = new Date().toISOString();
+        const newUser = {
+            ...data,
+            currentWeight: parseFloat(data.startWeight),
+            history: [parseFloat(data.startWeight)],
+            startDate: now,
+            lastWeightDate: now,
+            doseHistory: [{
+                date: now,
+                dose: data.currentDose,
+                medication: data.medicationId,
+                site: 'Não registrado'
+            }],
+            sideEffectsLogs: [],
+            measurements: [],
+            thoughtLogs: [],
+            dailyIntakeHistory: {},
+            isMaintenance: false,
+            settings: {
+                remindersEnabled: true,
+                proteinGoal: 100,
+                waterGoal: 2.5,
+                reminderTime: '09:00'
+            }
+        };
+
+        if (currentUser) {
+            userService.saveUserProfile(currentUser.uid, { ...newUser, uid: currentUser.uid, email: currentUser.email });
+        } else {
+            setGuestUser(newUser);
+            localStorage.setItem('mounjoy_guest_user', JSON.stringify(newUser));
+        }
+        setStartedOnboarding(false);
+    };
+
+    // Priority: 1. Cloud User Data, 2. Guest User Data
+    const hasAnyUser = userData || guestUser;
+
+    // If we have a user (logged in or guest), we show the main app
+    // HOWEVER: If a user IS logged in but Firestore hasn't loaded yet (userData is null),
+    // and they DON'T have guest data, we might show a loading state or the MainApp will handle it.
+    // Given AuthProvider handles loading, if currentUser exists, userData will eventually follow.
+    if (currentUser || guestUser) {
+        return <MainApp guestUser={guestUser} setGuestUser={setGuestUser} />;
     }
 
     // If user clicked "Entrar", show the login screen
@@ -225,9 +249,7 @@ const AppContent = () => {
 
     // If user clicked "Começar" on landing, show onboarding
     if (startedOnboarding) {
-        return <Onboarding onComplete={() => setStartedOnboarding(false)} />;
-        // Note: In a real app, onboarding completion would ideally lead to account creation 
-        // to persist data to Firestore, but we keep local-first for "guest" mode for now.
+        return <Onboarding onComplete={handleOnboardingComplete} />;
     }
 
     // Default: Show the Landing Page

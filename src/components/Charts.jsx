@@ -26,29 +26,76 @@ ChartJS.register(
 
 const Charts = ({ user }) => {
     const [view, setView] = useState('weight'); // 'weight' or 'glucose'
+    const [timeFilter, setTimeFilter] = useState('M'); // 'D', 'S', 'M', 'A' (Dia, Semana, Mês, Ano)
 
-    const glucoseHistory = [95, 102, 88, 92]; // Mocked glucose data
+    const glucoseHistory = [98, 105, 92, 110, 89, 94, 91];
+
+    // Weight History Logic: Real data takes priority, but we add mock data if empty for demo purposes
+    const hasEnoughData = user.measurements && user.measurements.length >= 3;
+    
+    let baseWeightLogs = user.measurements && user.measurements.length > 0
+        ? [...user.measurements].sort((a, b) => new Date(a.date) - new Date(b.date))
+        : [];
+
+    if (!hasEnoughData) {
+        const demoPoints = [
+            { date: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) + 5 },
+            { date: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) + 2 },
+            { date: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) },
+            { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) - 1.2 },
+            { date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) - 2.8 },
+            { date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), weight: (parseFloat(user.startWeight) || 90) - 3.5 },
+            { date: new Date().toISOString(), weight: user.currentWeight }
+        ];
+        baseWeightLogs = hasEnoughData ? baseWeightLogs : demoPoints;
+    }
+
+    // Filter logs based on selection
+    const filterLogs = (logs) => {
+        const now = new Date();
+        switch (timeFilter) {
+            case 'D': // Last 7 days
+                return logs.filter(l => (now - new Date(l.date)) <= 7 * 24 * 60 * 60 * 1000);
+            case 'S': // Last 28 days
+                return logs.filter(l => (now - new Date(l.date)) <= 28 * 24 * 60 * 60 * 1000);
+            case 'M': // Last 180 days
+                return logs.filter(l => (now - new Date(l.date)) <= 180 * 24 * 60 * 60 * 1000);
+            default: // 'A' or All-time
+                return logs;
+        }
+    };
+
+    const weightLogs = filterLogs(baseWeightLogs);
 
     const data = {
-        labels: user.history.map((_, i) => `Sem ${i + 1}`),
+        labels: view === 'weight'
+            ? weightLogs.map(m => {
+                const d = new Date(m.date);
+                if (timeFilter === 'A') return d.getFullYear();
+                if (timeFilter === 'M') return new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(d);
+                return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(d);
+            })
+            : ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6', 'Sem 7'],
         datasets: [{
-            label: view === 'weight' ? 'Peso (kg)' : 'Glicemia (mg/dL)',
-            data: view === 'weight' ? user.history : glucoseHistory,
-            borderColor: view === 'weight' ? '#0d9488' : '#22c55e',
+            label: view === 'weight' ? (hasEnoughData ? 'Peso (kg)' : 'Peso (Demo)') : 'Glicemia (mg/dL)',
+            data: view === 'weight' ? weightLogs.map(m => m.weight) : glucoseHistory,
+            borderColor: view === 'weight' ? '#0d9488' : '#34d399',
             backgroundColor: (context) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                const color = view === 'weight' ? 'rgba(13, 148, 136, 0.5)' : 'rgba(34, 197, 94, 0.5)';
-                gradient.addColorStop(0, color);
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+                const chart = context.chart;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return 'rgba(13, 148, 136, 0.1)';
+                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                const color = view === 'weight' ? 'rgba(13, 148, 136, 0.4)' : 'rgba(52, 211, 153, 0.4)';
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.0)');
+                gradient.addColorStop(1, color);
                 return gradient;
             },
-            borderWidth: 3,
+            borderWidth: 4,
             pointBackgroundColor: '#ffffff',
-            pointBorderColor: view === 'weight' ? '#0d9488' : '#22c55e',
+            pointBorderColor: view === 'weight' ? '#0d9488' : '#34d399',
             pointBorderWidth: 3,
-            pointRadius: 6,
-            pointHoverRadius: 8,
+            pointRadius: 4,
+            pointHoverRadius: 7,
             fill: true,
             tension: 0.4
         }]
@@ -73,8 +120,7 @@ const Charts = ({ user }) => {
                         const val = context.parsed.y;
                         const label = view === 'weight' ? `Peso: ${val}kg` : `Glicemia: ${val}mg/dL`;
 
-                        // Calculate BMI for that index if weight view
-                        if (view === 'weight') {
+                        if (view === 'weight' && user.height) {
                             const bmi = (val / (user.height * user.height)).toFixed(1);
                             return [label, `IMC: ${bmi}`, "Estado: Em evolução"];
                         }
@@ -86,6 +132,7 @@ const Charts = ({ user }) => {
         scales: {
             y: {
                 grid: { color: '#f1f5f9', drawBorder: false },
+                min: view === 'weight' ? Math.min(...weightLogs.map(m => m.weight)) - 5 : 60,
                 ticks: {
                     font: { family: 'Outfit', size: 10, weight: 'bold' },
                     color: '#94a3b8'
@@ -105,8 +152,12 @@ const Charts = ({ user }) => {
         },
     };
 
-    const heightInMeters = parseFloat(user.height);
-    const imc = (user.currentWeight / (heightInMeters * heightInMeters)).toFixed(1);
+    const heightInMeters = parseFloat(user.height) || 1.7;
+    const currentWeight = parseFloat(user.currentWeight) || 80;
+    const imc = (currentWeight / (heightInMeters * heightInMeters)).toFixed(1);
+
+    const lastDoseDate = user.doseHistory?.[0] ? new Date(user.doseHistory[0].date) : null;
+    const nextDoseDate = lastDoseDate ? new Date(lastDoseDate.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
 
     return (
         <div className="space-y-6 pb-24">
@@ -152,26 +203,40 @@ const Charts = ({ user }) => {
                 </div>
             </div>
 
-            {/* Dose History (Mini View) */}
+            {/* Dose History (Real data view) */}
             <div className="bg-slate-900 rounded-[32px] p-6 text-white stagger-4 fade-in">
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
                         <Calendar size={20} />
                     </div>
                     <div>
-                        <p className="text-[10px] text-teal-400 font-bold uppercase tracking-widest">Histórico de Doses</p>
-                        <p className="text-sm font-bold">Protocolo Tirzepatida</p>
+                        <p className="text-[10px] text-teal-400 font-bold uppercase tracking-widest">Controle de Protocolo</p>
+                        <p className="text-sm font-bold">{user.medicationId} • Real-time</p>
                     </div>
                 </div>
                 <div className="space-y-4">
-                    <div className="flex justify-between items-center text-sm border-b border-white/10 pb-2">
-                        <span className="text-white/60 font-medium">Semana 1</span>
-                        <span className="font-bold">2.5 mg</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm text-white/40">
-                        <span className="font-medium">Semana 2</span>
-                        <span className="font-bold">Em breve</span>
-                    </div>
+                    {user.doseHistory && user.doseHistory.length > 0 ? (
+                        user.doseHistory.slice(0, 3).map((dose, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm border-b border-white/5 pb-3">
+                                <div className="flex flex-col">
+                                    <span className="text-white/60 font-medium">{new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(dose.date))}</span>
+                                    <span className="text-[10px] text-white/30 uppercase">{dose.area}</span>
+                                </div>
+                                <span className="font-bold text-teal-400">{dose.dose}</span>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-xs text-white/40 italic">Nenhuma dose registrada ainda.</p>
+                    )}
+
+                    {nextDoseDate && (
+                        <div className="flex justify-between items-center text-sm pt-2 bg-white/5 p-3 rounded-2xl">
+                            <span className="text-white/60 font-medium italic">Próxima Dose Sugerida</span>
+                            <span className="font-black text-brand-300">
+                                {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(nextDoseDate)}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

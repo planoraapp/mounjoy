@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Bell, LogOut, Check, TrendingUp } from 'lucide-react';
+import { Settings, Bell, LogOut, Check, TrendingUp, Scale } from 'lucide-react';
 import { Modal, Button } from './ui/BaseComponents';
 import BodySelector from './ui/BodySelector';
 import { suggestNextInjection, getSiteById } from '../services/InjectionService';
@@ -8,10 +8,19 @@ import { MOCK_MEDICATIONS } from '../constants/medications';
 const Profile = ({ user, onReset, setUser }) => {
     const [showProtocolModal, setShowProtocolModal] = useState(false);
     const [showDoseModal, setShowDoseModal] = useState(false);
+    const [showMeasureModal, setShowMeasureModal] = useState(false);
+    const [showReminderModal, setShowReminderModal] = useState(false);
+
     const [selectedMed, setSelectedMed] = useState(user.medicationId);
     const [selectedDose, setSelectedDose] = useState(user.currentDose);
     const [routeFilter, setRouteFilter] = useState('all');
     const [selectedSiteId, setSelectedSiteId] = useState(null);
+    const [measures, setMeasures] = useState({ waist: '', hip: '' });
+
+    const [reminderSettings, setReminderSettings] = useState({
+        enabled: user.settings?.remindersEnabled ?? true,
+        time: user.settings?.reminderTime || '09:00'
+    });
 
     const filteredMeds = React.useMemo(() => {
         if (routeFilter === 'all') return MOCK_MEDICATIONS;
@@ -22,9 +31,6 @@ const Profile = ({ user, onReset, setUser }) => {
         return suggestNextInjection(user.doseHistory || []);
     }, [user.doseHistory]);
 
-    const [showMeasureModal, setShowMeasureModal] = useState(false);
-    const [measures, setMeasures] = useState({ waist: '', hip: '' });
-
     const handleUpdateProtocol = () => {
         const updatedUser = {
             ...user,
@@ -32,24 +38,26 @@ const Profile = ({ user, onReset, setUser }) => {
             currentDose: selectedDose
         };
         setUser(updatedUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
         setShowProtocolModal(false);
     };
 
     const handleSaveMeasures = () => {
+        const now = new Date().toISOString();
         const updatedUser = {
             ...user,
-            measurements: [{
-                date: new Date().toISOString(),
-                ...measures
-            }, ...(user.measurements || [])]
+            measurements: [
+                {
+                    date: now,
+                    waist: parseFloat(measures.waist),
+                    hip: parseFloat(measures.hip),
+                    weight: user.currentWeight
+                },
+                ...(user.measurements || [])
+            ]
         };
         setUser(updatedUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
         setShowMeasureModal(false);
     };
-
-    // ... handleAddDoseRecord ...
 
     const handleAddDoseRecord = () => {
         const siteId = selectedSiteId || injectionSuggestion.id;
@@ -60,17 +68,38 @@ const Profile = ({ user, onReset, setUser }) => {
             dose: user.currentDose,
             medication: user.medicationId,
             siteId: siteId,
-            area: site.area,
-            side: site.side
+            area: site?.area || 'N/A',
+            side: site?.side || 'N/A'
         };
         const updatedUser = {
             ...user,
             doseHistory: [newRecord, ...(user.doseHistory || [])]
         };
         setUser(updatedUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
         setShowDoseModal(false);
         setSelectedSiteId(null);
+    };
+
+    const handleSaveReminders = () => {
+        setUser({
+            ...user,
+            settings: {
+                ...(user.settings || {}),
+                remindersEnabled: reminderSettings.enabled,
+                reminderTime: reminderSettings.time
+            }
+        });
+        setShowReminderModal(false);
+    };
+
+    const updateGoal = (key, value) => {
+        setUser({
+            ...user,
+            settings: {
+                ...(user.settings || {}),
+                [key]: value
+            }
+        });
     };
 
     const currentMedInfo = MOCK_MEDICATIONS.find(m => m.id === selectedMed) || MOCK_MEDICATIONS[0];
@@ -81,7 +110,7 @@ const Profile = ({ user, onReset, setUser }) => {
                 <div className="relative w-28 h-28 mx-auto mb-4">
                     <div className="absolute inset-0 bg-brand-200 rounded-full blur-xl opacity-50"></div>
                     <div className="relative w-full h-full bg-gradient-to-tr from-brand-600 to-brand-400 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white">
-                        {user.name.charAt(0).toUpperCase()}
+                        {user.name?.charAt(0).toUpperCase() || 'U'}
                     </div>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 font-outfit">{user.name}</h2>
@@ -90,7 +119,8 @@ const Profile = ({ user, onReset, setUser }) => {
                 </p>
             </div>
 
-            <div className="space-y-3 pb-8">
+            <div className="space-y-6 pb-24">
+                {/* Primary Action */}
                 <button
                     onClick={() => setShowDoseModal(true)}
                     className="w-full bg-slate-900 text-white p-5 rounded-[28px] shadow-xl flex items-center justify-between group hover:scale-[1.02] transition-all"
@@ -107,49 +137,82 @@ const Profile = ({ user, onReset, setUser }) => {
                     <span className="text-white/30 group-hover:translate-x-1 transition-transform">›</span>
                 </button>
 
-                <button
-                    onClick={() => setShowProtocolModal(true)}
-                    className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
-                            <Settings size={18} />
-                        </div>
-                        <span className="font-medium text-slate-700">Configurar Protocolo</span>
+                {/* Health Goals Section */}
+                <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp size={18} className="text-brand" />
+                        <h3 className="font-bold text-slate-800">Metas de Saúde</h3>
                     </div>
-                    <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
-                </button>
 
-                <button
-                    onClick={() => setShowMeasureModal(true)}
-                    className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
-                            <TrendingUp size={18} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Proteína (g)</label>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => updateGoal('proteinGoal', Math.max(40, (user.settings?.proteinGoal || 100) - 5))} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 font-bold">−</button>
+                                <span className="flex-1 text-center font-black text-slate-900">{user.settings?.proteinGoal || 100}</span>
+                                <button onClick={() => updateGoal('proteinGoal', (user.settings?.proteinGoal || 100) + 5)} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 font-bold">+</button>
+                            </div>
                         </div>
-                        <span className="font-medium text-slate-700">Progresso Corporal (Medidas)</span>
-                    </div>
-                    <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
-                </button>
-
-                <button className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
-                            <Bell size={18} />
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Água (Litros)</label>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => updateGoal('waterGoal', Math.max(1, (user.settings?.waterGoal || 2.5) - 0.1))} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 font-bold">−</button>
+                                <span className="flex-1 text-center font-black text-slate-900">{(user.settings?.waterGoal || 2.5).toFixed(1)}</span>
+                                <button onClick={() => updateGoal('waterGoal', (user.settings?.waterGoal || 2.5) + 0.1)} className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-500 font-bold">+</button>
+                            </div>
                         </div>
-                        <span className="font-medium text-slate-700">Lembretes</span>
                     </div>
-                    <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
-                </button>
+                </div>
 
-                <button
-                    onClick={onReset}
-                    className="w-full mt-8 p-4 rounded-[24px] border border-red-100 text-red-500 font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors transition-all active:scale-95"
-                >
-                    <LogOut size={18} />
-                    Resetar App (Apagar Dados)
-                </button>
+                {/* Other Settings */}
+                <div className="space-y-3">
+                    <button
+                        onClick={() => setShowProtocolModal(true)}
+                        className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                                <Settings size={18} />
+                            </div>
+                            <span className="font-medium text-slate-700">Configurar Protocolo</span>
+                        </div>
+                        <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
+                    </button>
+
+                    <button
+                        onClick={() => setShowMeasureModal(true)}
+                        className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                                <Scale size={18} />
+                            </div>
+                            <span className="font-medium text-slate-700">Progresso Corporal (Medidas)</span>
+                        </div>
+                        <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
+                    </button>
+
+                    <button
+                        onClick={() => setShowReminderModal(true)}
+                        className="w-full bg-white p-4 rounded-[24px] shadow-sm border border-slate-100 flex items-center justify-between group hover:border-brand-200 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                                <Bell size={18} />
+                            </div>
+                            <span className="font-medium text-slate-700">Lembretes</span>
+                        </div>
+                        <span className="text-slate-300 group-hover:translate-x-1 transition-transform">›</span>
+                    </button>
+
+                    <button
+                        onClick={onReset}
+                        className="w-full mt-4 p-4 rounded-[24px] border border-red-100 text-red-500 font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors transition-all active:scale-95"
+                    >
+                        <LogOut size={18} />
+                        Sair da Conta
+                    </button>
+                </div>
             </div>
 
             {/* Modal: Medidas Corporais */}
@@ -184,6 +247,37 @@ const Profile = ({ user, onReset, setUser }) => {
                 </div>
             </Modal>
 
+            {/* Modal: Lembretes */}
+            <Modal isOpen={showReminderModal} onClose={() => setShowReminderModal(false)} title="Configurar Lembretes">
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl">
+                        <div>
+                            <p className="font-bold text-slate-800">Notificações</p>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Alertas no app</p>
+                        </div>
+                        <button
+                            onClick={() => setReminderSettings(s => ({ ...s, enabled: !s.enabled }))}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${reminderSettings.enabled ? 'bg-brand' : 'bg-slate-200'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${reminderSettings.enabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horário Preferencial</label>
+                        <input
+                            type="time"
+                            value={reminderSettings.time}
+                            onChange={(e) => setReminderSettings(s => ({ ...s, time: e.target.value }))}
+                            className="w-full bg-slate-50 border-none rounded-2xl p-4 text-center font-bold text-slate-800 focus:ring-2 focus:ring-brand-500"
+                        />
+                        <p className="text-[10px] text-slate-400 text-center italic mt-1">Este é o horário que o banner aparecerá no seu dia de dose.</p>
+                    </div>
+
+                    <Button onClick={handleSaveReminders} className="w-full">Salvar Configurações</Button>
+                </div>
+            </Modal>
+
             {/* Modal: Registrar Aplicação */}
             <Modal isOpen={showDoseModal} onClose={() => setShowDoseModal(false)} title="Nova Aplicação">
                 <div className="space-y-4">
@@ -206,95 +300,33 @@ const Profile = ({ user, onReset, setUser }) => {
                 </div>
             </Modal>
 
-            {/* Modal de Configuração de Protocolo */}
-            <Modal
-                isOpen={showProtocolModal}
-                onClose={() => setShowProtocolModal(false)}
-                title="Configurar Protocolo"
-            >
+            {/* Modal: Protocolo */}
+            <Modal isOpen={showProtocolModal} onClose={() => setShowProtocolModal(false)} title="Configurar Protocolo">
                 <div className="space-y-6">
-                    {/* Filtro de Via de Administração */}
                     <div className="flex p-1 bg-slate-100 rounded-2xl">
-                        <button
-                            onClick={() => setRouteFilter('all')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'all' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
-                        >
-                            Todos
-                        </button>
-                        <button
-                            onClick={() => setRouteFilter('injectable')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'injectable' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
-                        >
-                            Injetável
-                        </button>
-                        <button
-                            onClick={() => setRouteFilter('oral')}
-                            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'oral' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}
-                        >
-                            Via Oral
-                        </button>
+                        <button onClick={() => setRouteFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'all' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}>Todos</button>
+                        <button onClick={() => setRouteFilter('injectable')} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'injectable' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}>Injetável</button>
+                        <button onClick={() => setRouteFilter('oral')} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${routeFilter === 'oral' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500'}`}>Via Oral</button>
                     </div>
-
-                    <div className="grid transition-[grid-template-rows] duration-500 ease-in-out" style={{ gridTemplateRows: '1fr' }}>
-                        <div className="overflow-hidden">
-                            <div className="flex justify-between items-end mb-3 px-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Medicamento</label>
-                                <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full uppercase">
-                                    {filteredMeds.length} Opções
-                                </span>
-                            </div>
-                            <div key={routeFilter} className="grid grid-cols-2 gap-3 justify-items-center animate-fadeIn">
-                                {filteredMeds.map(med => {
-                                    const isSelected = selectedMed === med.id;
-                                    return (
-                                        <button
-                                            key={med.id}
-                                            onClick={() => {
-                                                setSelectedMed(med.id);
-                                                setSelectedDose(med.doses[0]);
-                                            }}
-                                            className={`p-3.5 rounded-2xl border-2 text-sm font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isSelected
-                                                ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[140px] scale-100'
-                                                : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[165px] scale-105 opacity-80 hover:opacity-100'
-                                                }`}
-                                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-                                        >
-                                            {med.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                    <div>
+                        <div className="flex justify-between items-end mb-3">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Medicamento</label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {filteredMeds.map(med => (
+                                <button key={med.id} onClick={() => { setSelectedMed(med.id); setSelectedDose(med.doses[0]); }} className={`p-3 rounded-2xl border-2 text-sm font-bold transition-all ${selectedMed === med.id ? 'border-brand bg-brand text-white shadow-md' : 'border-slate-100 bg-white text-slate-500'}`}>{med.name}</button>
+                            ))}
                         </div>
                     </div>
-
-                    <div className="grid transition-[grid-template-rows] duration-500 ease-in-out" style={{ gridTemplateRows: '1fr' }}>
-                        <div className="overflow-hidden">
-                            <div className="flex justify-between items-end mb-3 px-1">
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Dosagem</label>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentMedInfo?.name}</span>
-                            </div>
-                            <div key={selectedMed} className="grid grid-cols-3 gap-2 justify-items-center animate-fadeIn">
-                                {currentMedInfo?.doses.map(dose => {
-                                    const isDoseSelected = selectedDose === dose;
-                                    return (
-                                        <button
-                                            key={dose}
-                                            onClick={() => setSelectedDose(dose)}
-                                            className={`p-3 rounded-xl border-2 text-xs font-bold transition-all duration-500 active:scale-95 w-full flex items-center justify-center transform-gpu ${isDoseSelected
-                                                ? 'border-teal-700 bg-teal-700 text-white shadow-md max-w-[85px] scale-100'
-                                                : 'border-slate-100 bg-white text-slate-500 hover:border-teal-200 max-w-[105px] scale-105 opacity-80 hover:opacity-100'
-                                                }`}
-                                            style={{ transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-                                        >
-                                            {dose}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Dosagem</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {currentMedInfo?.doses.map(dose => (
+                                <button key={dose} onClick={() => setSelectedDose(dose)} className={`p-3 rounded-xl border-2 text-xs font-bold transition-all ${selectedDose === dose ? 'border-brand bg-brand text-white shadow-md' : 'border-slate-100 bg-white text-slate-500'}`}>{dose}</button>
+                            ))}
                         </div>
                     </div>
-
-                    <Button onClick={handleUpdateProtocol} className="w-full mt-4 py-4 rounded-3xl">Salvar Alterações</Button>
+                    <Button onClick={handleUpdateProtocol} className="w-full">Salvar Alterações</Button>
                 </div>
             </Modal>
         </div>

@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { Info, AlertCircle } from 'lucide-react';
 import { Modal, Button } from './ui/BaseComponents';
 
-const Logs = () => {
+const Logs = ({ user, setUser }) => {
     const [nausea, setNausea] = useState(null);
     const [foodNoise, setFoodNoise] = useState(3);
     const [showFoodNoiseInfo, setShowFoodNoiseInfo] = useState(false);
     const [note, setNote] = useState('');
+    const [trigger, setTrigger] = useState('');
     const [showTriggerField, setShowTriggerField] = useState(false);
-
     const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     const symptoms = [
         { id: 'nausea', emoji: '🤢', label: 'Náusea' },
@@ -26,6 +27,32 @@ const Logs = () => {
         if (id === 'nausea' || id === 'vomito') {
             setShowTriggerField(true);
         }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        const now = new Date().toISOString();
+        const newLog = {
+            date: now,
+            foodNoise: parseInt(foodNoise),
+            symptoms: selectedSymptoms,
+            trigger: trigger,
+            note: note
+        };
+
+        const updatedUser = {
+            ...user,
+            sideEffectsLogs: [newLog, ...(user.sideEffectsLogs || [])]
+        };
+
+        await setUser(updatedUser);
+
+        // Reset local state
+        setNote('');
+        setTrigger('');
+        setSelectedSymptoms([]);
+        setFoodNoise(3);
+        setIsSaving(false);
     };
 
     const getSliderColor = () => {
@@ -47,8 +74,8 @@ const Logs = () => {
                             key={symptom.id}
                             onClick={() => toggleSymptom(symptom.id)}
                             className={`aspect-square rounded-2xl bg-white border border-slate-100 shadow-sm flex flex-col items-center justify-center gap-1 transition-all group focus:ring-2 active:scale-95 ${selectedSymptoms.includes(symptom.id)
-                                    ? `ring-2 ring-brand-500 border-brand-200 bg-brand-50`
-                                    : `hover:bg-slate-50`
+                                ? `ring-2 ring-brand-500 border-brand-200 bg-brand-50`
+                                : `hover:bg-slate-50`
                                 }`}
                         >
                             <span className={`text-2xl transition-transform ${selectedSymptoms.includes(symptom.id) ? 'scale-110' : 'group-hover:scale-110'}`}>{symptom.emoji}</span>
@@ -65,6 +92,8 @@ const Logs = () => {
                         </div>
                         <input
                             type="text"
+                            value={trigger}
+                            onChange={(e) => setTrigger(e.target.value)}
                             placeholder="Ex: Doce, gordura, cheiro forte..."
                             className="w-full bg-white border-none rounded-xl p-3 text-sm focus:ring-2 focus:ring-orange-500 shadow-inner"
                         />
@@ -129,8 +158,12 @@ const Logs = () => {
                 ></textarea>
             </div>
 
-            <Button className="stagger-5 fade-in w-full py-5 rounded-[24px] text-lg shadow-xl !bg-slate-900 !from-slate-900 !to-slate-800">
-                Salvar Registro
+            <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="stagger-5 fade-in w-full py-5 rounded-[24px] text-lg shadow-xl !bg-slate-900 !from-slate-900 !to-slate-800"
+            >
+                {isSaving ? 'Salvando...' : 'Salvar Registro'}
             </Button>
 
             {/* Modal de Informação: Food Noise */}
