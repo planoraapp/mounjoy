@@ -1,18 +1,63 @@
 ﻿import React, { useState, useMemo } from 'react';
-import { Activity, Plus, Heart, Droplet, Info, Thermometer, Zap, TrendingUp, Syringe, Calendar } from 'lucide-react';
+import { Activity, Plus, Heart, Droplet, Info, Thermometer, Zap, TrendingUp, Syringe, Calendar, Camera, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Modal, Input, Button, VerticalMeter, Slider } from './ui/BaseComponents';
 import AlertBox from './ui/AlertBox';
 import BodySelector from './ui/BodySelector';
 import { suggestNextInjection, getSiteById } from '../services/InjectionService';
 import { MOCK_MEDICATIONS } from '../constants/medications';
+import scalerImg from '../public/scaler.png';
+import waterImg from '../public/water.png';
+import proteinImg from '../public/protein.png';
+import penImg from '../public/pen.png';
 
 const TIPS = [
-    "Beba pelo menos 2.5L de Ã¡gua para ajudar os rins a processar a quebra de gordura.",
-    "Priorize proteÃ­nas em todas as refeiÃ§Ãµes para evitar a perda de massa muscular.",
-    "Se sentir nÃ¡usea, experimente comer porÃ§Ãµes menores e evitar frituras.",
-    "A constipaÃ§Ã£o Ã© comum; aumente a ingestÃ£o de fibras e considere um suplemento.",
-    "Mantenha um sono regular; o descanso Ã© fundamental para o equilÃ­brio hormonal."
+    "Beba pelo menos 2.5L de água para ajudar os rins a processar a quebra de gordura.",
+    "Priorize proteínas em todas as refeições para evitar a perda de massa muscular.",
+    "Se sentir náusea, experimente comer porções menores e evitar frituras.",
+    "A constipação é comum; aumente a ingestão de fibras e considere um suplemento.",
+    "Mantenha um sono regular; o descanso é fundamental para o equilíbrio hormonal."
 ];
+
+const ConfettiExplosion = React.memo(() => {
+    const particles = useMemo(() => {
+        return [...Array(40)].map((_, i) => ({
+            id: i,
+            tx: `${(Math.random() - 0.5) * 300}px`,
+            ty: `${(Math.random() - 0.5) * 300}px`,
+            r: `${(Math.random() - 0.5) * 720}deg`,
+            delay: `${Math.random() * 0.15}s`,
+            color: Math.random() > 0.5 ? 'bg-white' : 'bg-white/40',
+            size: Math.random() > 0.5 ? 'w-2 h-2' : 'w-1.5 h-1.5'
+        }));
+    }, []);
+
+    return (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            <style>{`
+                @keyframes confetti-pop {
+                    0% { transform: translate(-50%, -50%) rotate(0deg) scale(0); opacity: 1; }
+                    70% { opacity: 1; }
+                    100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--r)) scale(0.5); opacity: 0; }
+                }
+                .animate-pop {
+                    animation: confetti-pop 1.5s cubic-bezier(0.15, 0.9, 0.3, 1) forwards;
+                }
+            `}</style>
+            {particles.map(p => (
+                <div
+                    key={p.id}
+                    className={`absolute left-1/2 top-1/2 rounded-sm animate-pop ${p.color} ${p.size}`}
+                    style={{
+                        '--tx': p.tx,
+                        '--ty': p.ty,
+                        '--r': p.r,
+                        animationDelay: p.delay
+                    }}
+                />
+            ))}
+        </div>
+    );
+});
 
 const Dashboard = ({ user, setUser }) => {
     const medication = MOCK_MEDICATIONS.find(m => m.id === user.medicationId);
@@ -22,10 +67,19 @@ const Dashboard = ({ user, setUser }) => {
     const [selectedSiteId, setSelectedSiteId] = useState(null);
     const [showSpeedInfo, setShowSpeedInfo] = useState(false);
     const [showPlateauInfo, setShowPlateauInfo] = useState(false);
+    const [currentPhotoIndex, setCurrentPhotoIndex] = useState((user.photos && user.photos.length > 0) ? user.photos.length - 1 : 0);
+    const [animatingAsset, setAnimatingAsset] = useState(null);
+    const [isFullscreenPhoto, setIsFullscreenPhoto] = useState(false);
 
     // Get date key for daily tracking
     const today = new Date().toISOString().split('T')[0];
     const dailyData = user.dailyIntakeHistory[today] || { water: 0, protein: 0 };
+
+    const waterPercentage = Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100);
+    const isWaterComplete = waterPercentage >= 100;
+
+    const proteinPercentage = Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100);
+    const isProteinComplete = proteinPercentage >= 100;
 
     const updateIntake = (type, amount) => {
         const currentAmount = dailyData[type];
@@ -44,6 +98,9 @@ const Dashboard = ({ user, setUser }) => {
         };
         setUser(updatedUser);
         localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
+
+        setAnimatingAsset(type);
+        setTimeout(() => setAnimatingAsset(null), 300);
     };
 
     const updateWeight = () => {
@@ -71,6 +128,72 @@ const Dashboard = ({ user, setUser }) => {
             hour: '2-digit',
             minute: '2-digit'
         }).format(date);
+    };
+
+    const handlePhotoUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const maxSize = 800; // compress limits
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+                } else {
+                    if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/webp', 0.9);
+
+                const newPhoto = { url: dataUrl, date: new Date().toISOString() };
+                const updatedPhotos = [...(user.photos || []), newPhoto];
+                const finalPhotos = updatedPhotos.slice(-10); // rate limiting storage size
+                const updatedUser = { ...user, photos: finalPhotos };
+                setUser(updatedUser);
+                localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
+                setCurrentPhotoIndex(finalPhotos.length - 1);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const deletePhoto = () => {
+        if (!user.photos || user.photos.length === 0) return;
+        const updatedPhotos = user.photos.filter((_, index) => index !== currentPhotoIndex);
+        const updatedUser = { ...user, photos: updatedPhotos };
+        setUser(updatedUser);
+        localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
+
+        if (updatedPhotos.length === 0) {
+            setIsFullscreenPhoto(false);
+            setCurrentPhotoIndex(0);
+        } else if (currentPhotoIndex >= updatedPhotos.length) {
+            setCurrentPhotoIndex(updatedPhotos.length - 1);
+        }
+    };
+
+    const nextPhoto = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (user.photos?.length > 1) {
+            setCurrentPhotoIndex((prev) => (prev + 1) % user.photos.length);
+        }
+    };
+
+    const prevPhoto = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (user.photos?.length > 1) {
+            setCurrentPhotoIndex((prev) => (prev - 1 + user.photos.length) % user.photos.length);
+        }
     };
 
     const totalLoss = (user.history[0] - user.currentWeight).toFixed(1);
@@ -112,13 +235,13 @@ const Dashboard = ({ user, setUser }) => {
         let message = "";
         let color = "text-brand";
         if (daysSinceDose <= 2) {
-            message = "Fase de Pico: Priorize refeiÃ§Ãµes leves.";
+            message = "Fase de Pico: Priorize refeições leves.";
             color = "text-brand";
         } else if (daysSinceDose >= 6) {
-            message = "NÃ­vel Baixo: O Food Noise pode aumentar. Mantenha o foco!";
+            message = "Nível Baixo: O Food Noise pode aumentar. Mantenha o foco!";
             color = "text-orange-500";
         } else {
-            message = "NÃ­vel EstÃ¡vel: Aproveite para focar em treinos de forÃ§a.";
+            message = "Nível Estável: Aproveite para focar em treinos de força.";
             color = "text-teal-600";
         }
 
@@ -173,7 +296,7 @@ const Dashboard = ({ user, setUser }) => {
             insights.push({
                 type: 'danger',
                 title: 'Perda Acelerada',
-                message: `VocÃª estÃ¡ perdendo em mÃ©dia ${speed.toFixed(1)}kg por semana. Cuidado com a perda de massa muscular. Aumente o aporte de proteÃ­nas.`,
+                message: `Você está perdendo em média ${speed.toFixed(1)}kg por semana. Cuidado com a perda de massa muscular. Aumente o aporte de proteínas.`,
                 onInfo: () => setShowSpeedInfo(true)
             });
         }
@@ -182,8 +305,8 @@ const Dashboard = ({ user, setUser }) => {
         if (lastWeights.length >= 3 && lastWeights.every(v => v === lastWeights[0])) {
             insights.push({
                 type: 'warning',
-                title: 'PlatÃ´ Identificado',
-                message: 'Seu peso estabilizou nos Ãºltimos 3 registros. Tente variar os treinos.',
+                title: 'Platô Identificado',
+                message: 'Seu peso estabilizou nos últimos 3 registros. Tente variar os treinos.',
                 onInfo: () => setShowPlateauInfo(true)
             });
         }
@@ -203,9 +326,9 @@ const Dashboard = ({ user, setUser }) => {
     return (
         <div className="space-y-6 pb-6">
             {/* Health Insights Section */}
-            {(healthInsights.length > 0 || dailyTip) && (
+            {(healthInsights.length > 0) && (
                 <div className="space-y-3 stagger-1 fade-in">
-                    <h3 className="text-lg font-bold text-slate-800 ml-1 font-outfit">Insights de SaÃºde</h3>
+                    <h3 className="text-lg font-bold text-slate-800 ml-1 font-outfit">Insights de Saúde</h3>
                     {healthInsights.map((insight, index) => (
                         <div key={index} className="relative group">
                             <AlertBox
@@ -221,6 +344,120 @@ const Dashboard = ({ user, setUser }) => {
                             </button>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Gallery and Vertical Progress */}
+            <div className="stagger-2 fade-in grid grid-cols-2 gap-4">
+                {/* Photo Gallery Frame */}
+                <div className="relative overflow-hidden rounded-[40px] bg-slate-100 flex flex-col items-center justify-center min-h-[320px] shadow-inner group transition-all border-2 border-dashed border-slate-300 hover:border-brand-300">
+                    <input type="file" id="photo-upload" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+
+                    {user.photos && user.photos.length > 0 ? (
+                        <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-100 cursor-pointer rounded-[40px] overflow-hidden" onClick={() => setIsFullscreenPhoto(true)}>
+                            <img src={typeof (user.photos[currentPhotoIndex] || user.photos[0]) === 'string' ? (user.photos[currentPhotoIndex] || user.photos[0]) : (user.photos[currentPhotoIndex] || user.photos[0])?.url} alt="Evolução" className="w-full h-full object-cover" />
+                            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+
+                            {/* Actions overlay */}
+                            <div className="absolute inset-x-0 pt-4 px-4 flex justify-between items-center z-20 pointer-events-none">
+                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest drop-shadow-md bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">Sua Evolução</span>
+                                <label htmlFor="photo-upload" className="w-8 h-8 rounded-full bg-white backdrop-blur-md flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer text-slate-500 shadow-lg pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                                    <Plus size={16} />
+                                </label>
+                            </div>
+
+                            {/* Navigation & Pagination Indicators */}
+                            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 z-10 w-full px-4">
+                                {typeof (user.photos[currentPhotoIndex] || user.photos[0]) !== 'string' && (
+                                    <span className="text-white text-[10px] font-black tracking-widest drop-shadow-md">
+                                        {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(((user.photos[currentPhotoIndex] || user.photos[0])).date)).replace('/', '-')}
+                                    </span>
+                                )}
+                                <div className="flex w-full items-center justify-between">
+                                    {user.photos.length > 1 ? (
+                                        <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                            <ChevronLeft size={20} />
+                                        </button>
+                                    ) : <div className="w-8 shrink-0"></div>}
+
+                                    <div className="flex justify-center gap-1.5 flex-1 mx-2">
+                                        {user.photos.map((_, i) => (
+                                            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${currentPhotoIndex === i ? 'w-4 bg-white' : 'w-1.5 bg-white/40'}`}></div>
+                                        ))}
+                                    </div>
+
+                                    {user.photos.length > 1 ? (
+                                        <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                            <ChevronRight size={20} />
+                                        </button>
+                                    ) : <div className="w-8 shrink-0"></div>}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <label htmlFor="photo-upload" className="w-full h-full absolute inset-0 flex flex-col items-center justify-center p-6 cursor-pointer opacity-80 hover:opacity-100 hover:bg-slate-200 transition-colors border-none m-0">
+                            <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                                <Camera size={24} className="text-slate-400 group-hover:text-brand-500 transition-colors" />
+                            </div>
+                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest text-center group-hover:text-brand-600 transition-colors">Sua Evolução</span>
+                            <span className="text-[10px] text-slate-400 mt-1 font-medium text-center opacity-70">Adicionar foto</span>
+                        </label>
+                    )}
+                </div>
+
+                {/* Vertical Progress Card */}
+                <div className="relative overflow-hidden rounded-[40px] p-5 text-white shadow-xl bg-gradient-to-br from-brand-500 to-brand-600 flex flex-col justify-between h-full">
+                    <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
+                        <Activity size={140} />
+                    </div>
+
+                    <div className="flex flex-col relative z-10 mb-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="text-teal-50 text-[10px] font-bold tracking-widest uppercase opacity-80 font-outfit">Progresso</span>
+                            <button
+                                onClick={() => {
+                                    setNewWeight(user.currentWeight.toString());
+                                    setShowWeightModal(true);
+                                }}
+                                className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-2 rounded-xl transition-all active:scale-90"
+                            >
+                                <Plus size={16} />
+                            </button>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <span className="text-5xl font-black tracking-tighter leading-none">{user.currentWeight}</span>
+                            <span className="text-sm font-medium mb-1 opacity-80">kg</span>
+                        </div>
+                    </div>
+
+
+                    {/* Horizontal Progress Bars */}
+                    <div className="flex flex-col gap-3 bg-white/10 backdrop-blur-md rounded-[24px] p-4 relative z-10 border border-white/10 mt-auto">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Proteína</span>
+                                <span className="text-xs font-black text-orange-300 tabular-nums leading-none">{dailyData.protein} / {user.settings?.proteinGoal || 100}g</span>
+                            </div>
+                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-orange-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100)}%` }}></div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Água</span>
+                                <span className="text-xs font-black text-blue-300 tabular-nums leading-none">{dailyData.water} / {user.settings?.waterGoal || 2.5}L</span>
+                            </div>
+                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100)}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {dailyTip && (
+                <div className="stagger-3 fade-in">
                     <AlertBox
                         type="info"
                         title="Dica do Dia"
@@ -229,55 +466,12 @@ const Dashboard = ({ user, setUser }) => {
                 </div>
             )}
 
-            {/* Weight Hero Card + Progress Rings */}
-            <div className="stagger-2 fade-in relative overflow-hidden rounded-[40px] p-6 text-white shadow-xl bg-gradient-to-br from-brand-500 to-brand-600">
-                <div className="absolute -right-10 -top-10 opacity-10">
-                    <Activity size={150} />
-                </div>
-
-                <div className="flex justify-between items-start relative z-10 mb-6">
-                    <div>
-                        <span className="text-teal-50 text-sm font-medium tracking-wide uppercase opacity-80 font-outfit">Seu Progresso</span>
-                        <div className="flex items-end gap-2 mt-1">
-                            <span className="text-5xl font-bold tracking-tighter">{user.currentWeight}</span>
-                            <span className="text-xl font-medium mb-2 opacity-80">kg</span>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => {
-                            setNewWeight(user.currentWeight.toString());
-                            setShowWeightModal(true);
-                        }}
-                        className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-3 rounded-2xl transition-all active:scale-90"
-                    >
-                        <Plus size={24} />
-                    </button>
-                </div>
-
-                {/* Progress Rings Integrated */}
-                <div className="grid grid-cols-2 gap-4 bg-white/10 backdrop-blur-md rounded-[32px] p-4 relative z-10 border border-white/10">
-                    <VerticalMeter
-                        value={dailyData.protein}
-                        max={user.settings?.proteinGoal || 100}
-                        color="orange"
-                        label="PROTEÍNA"
-                    />
-                    <VerticalMeter
-                        value={dailyData.water}
-                        max={user.settings?.waterGoal || 2.5}
-                        color="blue"
-                        label="HIDRATAÇÃO"
-                        lines={['HIDRA', 'TA', 'ÇÃO']}
-                    />
-                </div>
-            </div>
-
             {/* Injection Tracker Card (Only for Injectables) */}
             {medication?.route === 'injectable' && (
                 <div className="stagger-3 fade-in bg-white p-5 rounded-[32px] shadow-sm border border-slate-100 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-outfit">PrÃ³xima AplicaÃ§Ã£o</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-outfit">Próxima Aplicação</span>
                             <div className="flex items-center gap-2 mt-1">
                                 <h3 className="text-xl font-black text-slate-800 tracking-tight">
                                     {cycleInfo.daysSinceDose >= 7 ? "Dia de Injetar!" : `Em ${7 - cycleInfo.daysSinceDose} dias`}
@@ -289,9 +483,9 @@ const Dashboard = ({ user, setUser }) => {
                         </div>
                         <button
                             onClick={() => setShowInjectionModal(true)}
-                            className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand border border-brand-100 hover:bg-brand-100 transition-all active:scale-95"
+                            className="flex items-center justify-center transition-transform hover:scale-110 active:scale-95 p-2"
                         >
-                            <Syringe size={24} />
+                            <img src={penImg} alt="Pen" className="w-[51px] h-[51px] object-contain" />
                         </button>
                     </div>
 
@@ -312,9 +506,9 @@ const Dashboard = ({ user, setUser }) => {
                     {cycleInfo.daysSinceDose >= 7 && (
                         <Button
                             onClick={() => setShowInjectionModal(true)}
-                            className="w-full py-4 rounded-2xl text-sm font-black shadow-lg shadow-brand-500/20 active:scale-[0.98]"
+                            className="w-full py-4 rounded-2xl text-sm font-black active:scale-[0.98]"
                         >
-                            Registrar AplicaÃ§Ã£o de Hoje
+                            Registrar Aplicação de Hoje
                         </Button>
                     )}
                 </div>
@@ -328,8 +522,8 @@ const Dashboard = ({ user, setUser }) => {
                             <TrendingUp size={20} />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Alerta de PlatÃ´</p>
-                            <p className="text-xs text-amber-600 font-medium leading-tight">Peso estÃ¡vel hÃ¡ 14 dias. Tente variar a rotina de exercÃ­cios ou hidrataÃ§Ã£o.</p>
+                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Alerta de Platô</p>
+                            <p className="text-xs text-amber-600 font-medium leading-tight">Peso estável há 14 dias. Tente variar a rotina de exercícios ou hidratação.</p>
                         </div>
                     </div>
                 )}
@@ -341,7 +535,7 @@ const Dashboard = ({ user, setUser }) => {
                         </div>
                         <div className="flex-1">
                             <p className="text-[10px] font-black text-teal-700 uppercase tracking-widest">Baixa Fome Detectada</p>
-                            <p className="text-xs text-teal-600 font-medium leading-tight">Priorize refeiÃ§Ãµes leves e densas em proteÃ­na: ovos, iogurte ou shake.</p>
+                            <p className="text-xs text-teal-600 font-medium leading-tight">Priorize refeições leves e densas em proteína: ovos, iogurte ou shake.</p>
                         </div>
                     </div>
                 )}
@@ -356,52 +550,65 @@ const Dashboard = ({ user, setUser }) => {
                     </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    {/* Ãgua Card */}
-                    <div className="bg-slate-900 p-4 rounded-[32px] shadow-lg flex flex-row items-stretch gap-3 group transition-all active:scale-95 border border-slate-800 overflow-hidden">
-                        <div className="flex items-center justify-center shrink-0">
-                            <span className="font-black text-white/20 uppercase text-[11px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.3em' }}>
-                                HIDRATAÃ‡ÃƒO
-                            </span>
+                    {/* Água Card - New Clean Minimalist Design */}
+                    <div className={`p-4 lg:p-5 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col items-center gap-3 transition-colors duration-700 border overflow-hidden relative ${isWaterComplete ? 'bg-blue-500 border-blue-600' : 'bg-white border-slate-100'}`}>
+                        {isWaterComplete && <ConfettiExplosion />}
+                        <div className="w-full flex justify-between items-center z-10">
+                            <div className="flex flex-col">
+                                <span className={`font-outfit font-black text-sm transition-colors duration-700 ${isWaterComplete ? 'text-white' : 'text-slate-800'}`}>ÁGUA</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors duration-700 ${isWaterComplete ? 'text-blue-100' : 'text-slate-400'}`}>{user.settings?.waterGoal || 2.5} L/Dia</span>
+                            </div>
                         </div>
-                        <div className="flex flex-col items-center gap-1.5 py-1">
-                            <div className="flex-1 w-3 bg-white/10 rounded-full overflow-hidden relative">
-                                <div className="absolute bottom-0 left-0 w-full bg-blue-400 rounded-full transition-all duration-1000 ease-out" style={{ height: `${Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100)}%` }} />
+
+                        <div className="w-full relative flex flex-col items-center gap-3 my-2 z-10">
+                            <div className="relative w-full h-28 flex items-center justify-center">
+                                <img src={waterImg} alt="Water" className={`h-full w-auto object-contain drop-shadow-[-4px_5px_0_rgba(148,163,184,0.4)] transform transition-all duration-300 absolute ${animatingAsset === 'water' ? 'scale-125' : 'scale-100 hover:scale-110'} animate-float`} />
                             </div>
-                            <span className="text-[9px] font-black text-blue-400 tabular-nums">{Math.round(Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100))}%</span>
+                            <div className="w-full flex items-center gap-2 px-1">
+                                <span className={`text-2xl font-black tabular-nums leading-none transition-colors duration-700 ${isWaterComplete ? 'text-white' : 'text-slate-800'}`}>{dailyData.water}</span>
+                                <div className={`flex-1 h-2 rounded-full overflow-hidden transition-colors duration-700 ${isWaterComplete ? 'bg-blue-400' : 'bg-blue-50'}`}>
+                                    <div className={`h-full rounded-full transition-all duration-1000 ease-out ${isWaterComplete ? 'bg-white' : 'bg-blue-500'}`} style={{ width: `${waterPercentage}%` }}></div>
+                                </div>
+                                <span className={`text-[10px] font-black transition-colors duration-700 ${isWaterComplete ? 'text-white' : 'text-blue-300'}`}>{Math.round(waterPercentage)}%</span>
+                            </div>
                         </div>
-                        <div className="flex flex-col justify-between items-end flex-1">
-                            <div className="text-right">
-                                <p className="text-2xl font-black text-white tabular-nums leading-none">{dailyData.water}</p>
-                                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">litros</p>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <button onClick={() => updateIntake('water', 0.2)} className="w-8 h-8 rounded-xl bg-blue-500 shadow-lg flex items-center justify-center text-white font-bold text-lg leading-none">+</button>
-                                <button onClick={() => updateIntake('water', -0.2)} className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 font-bold text-lg leading-none">âˆ’</button>
-                            </div>
+
+                        <div className="flex w-full gap-2 z-10 mt-auto">
+                            <button onClick={() => updateIntake('water', -0.2)} className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-blue-600 border-blue-600 text-blue-100 hover:bg-blue-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
+                            <button onClick={() => updateIntake('water', 0.2)} className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-white text-blue-600 hover:bg-blue-50 shadow-md' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>+</button>
                         </div>
                     </div>
 
-                    {/* ProteÃ­na Card */}
-                    <div className="bg-slate-900 p-4 rounded-[32px] shadow-lg flex flex-row items-stretch gap-3 group transition-all active:scale-95 border border-slate-800 overflow-hidden">
-                        <div className="flex items-center justify-center shrink-0">
-                            <span className="font-black text-white/20 uppercase text-[11px]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', letterSpacing: '0.3em' }}>
-                                PROTEÃNA
-                            </span>
-                        </div>
-                        <div className="flex flex-col items-center gap-1.5 py-1">
-                            <div className="flex-1 w-3 bg-white/10 rounded-full overflow-hidden relative">
-                                <div className="absolute bottom-0 left-0 w-full bg-orange-400 rounded-full transition-all duration-1000 ease-out" style={{ height: `${Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100)}%` }} />
+                    {/* Proteína Card - New Clean Minimalist Design */}
+                    <div className="w-full relative flex flex-col gap-2">
+                        <div
+                            className={`p-4 lg:p-5 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col items-center gap-3 transition-colors duration-700 border overflow-hidden relative ${isProteinComplete ? 'border-transparent' : 'bg-white border-slate-100'}`}
+                            style={isProteinComplete ? { backgroundColor: `hsl(20, 90%, 55%)` } : {}}
+                        >
+                            {isProteinComplete && <ConfettiExplosion />}
+                            <div className="w-full flex justify-between items-center z-10">
+                                <div className="flex flex-col">
+                                    <span className={`font-outfit font-black text-sm transition-colors duration-700 ${isProteinComplete ? 'text-white' : 'text-slate-800'}`}>PROTEÍNA</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors duration-700 ${isProteinComplete ? 'text-white/80' : 'text-slate-400'}`}>{user.settings?.proteinGoal || 100} g/Dia</span>
+                                </div>
                             </div>
-                            <span className="text-[9px] font-black text-orange-400 tabular-nums">{Math.round(Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100))}%</span>
-                        </div>
-                        <div className="flex flex-col justify-between items-end flex-1">
-                            <div className="text-right">
-                                <p className="text-2xl font-black text-white tabular-nums leading-none">{dailyData.protein}</p>
-                                <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">gramas</p>
+
+                            <div className="w-full relative flex flex-col items-center gap-3 my-2 z-10">
+                                <div className="relative w-full h-28 flex items-center justify-center">
+                                    <img src={proteinImg} alt="Protein" className={`h-[130%] w-auto object-contain drop-shadow-[-4px_5px_0_rgba(148,163,184,0.4)] transform transition-all duration-300 absolute ${animatingAsset === 'protein' ? 'scale-125' : 'scale-100 hover:scale-110'} animate-float`} />
+                                </div>
+                                <div className="w-full flex items-center gap-2 px-1">
+                                    <span className={`text-2xl font-black tabular-nums leading-none transition-colors duration-700 ${isProteinComplete ? 'text-white' : 'text-slate-800'}`}>{dailyData.protein}</span>
+                                    <div className={`flex-1 h-2 rounded-full overflow-hidden transition-colors duration-700 ${isProteinComplete ? 'bg-black/10' : 'bg-orange-50'}`}>
+                                        <div className={`h-full rounded-full transition-all duration-1000 ease-out ${isProteinComplete ? 'bg-white' : 'bg-orange-500'}`} style={{ width: `${proteinPercentage}%` }}></div>
+                                    </div>
+                                    <span className={`text-[10px] font-black transition-colors duration-700 ${isProteinComplete ? 'text-white' : 'text-orange-300'}`}>{Math.round(proteinPercentage)}%</span>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <button onClick={() => updateIntake('protein', 5)} className="w-8 h-8 rounded-xl bg-orange-500 shadow-lg flex items-center justify-center text-white font-bold text-lg leading-none">+</button>
-                                <button onClick={() => updateIntake('protein', -5)} className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 font-bold text-lg leading-none">âˆ’</button>
+
+                            <div className="flex w-full gap-2 z-10 mt-auto">
+                                <button onClick={() => updateIntake('protein', -5)} className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white/20 border-transparent text-white hover:bg-white/30' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
+                                <button onClick={() => updateIntake('protein', 5)} className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white text-black/80 hover:bg-white/90 shadow-md' : 'bg-orange-500 text-white hover:bg-orange-600'}`}>+</button>
                             </div>
                         </div>
                     </div>
@@ -410,16 +617,36 @@ const Dashboard = ({ user, setUser }) => {
 
             {/* Weight Update Modal */}
             <Modal isOpen={showWeightModal} onClose={() => setShowWeightModal(false)} title="Atualizar Peso">
-                <div className="text-center mb-8 bg-brand-50/50 rounded-[32px] py-6 border border-brand-100/50 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-brand-100/30 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
-                    <p className="text-[10px] font-bold text-brand-600/60 uppercase tracking-[0.2em] mb-1 relative z-10">Registro Anterior</p>
-                    <p className="text-4xl font-black text-brand-900 tracking-tighter relative z-10">
-                        {user.currentWeight}<span className="text-lg font-medium text-brand-600/40 ml-1">kg</span>
-                    </p>
-                    <div className="mt-3 relative z-10">
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest bg-brand-600 px-3 py-1 rounded-full shadow-sm">
-                            {formatDate(user.lastWeightDate || user.startDate)}
-                        </span>
+                <div className="flex items-center justify-between mb-8 bg-brand-50/50 rounded-[32px] p-6 border border-brand-100/50 relative overflow-hidden group">
+                    {/* Histórico Recente */}
+                    <div className="flex flex-col gap-1 relative z-10 w-1/4">
+                        <div className="text-left border-l-2 border-brand-200 pl-2">
+                            <span className="text-sm font-black text-brand-900/40">
+                                {user.history.length > 1 ? user.history[user.history.length - 2] : user.history[0]}
+                                <span className="text-[10px] font-medium ml-0.5">kg</span>
+                            </span>
+                            <div className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">
+                                {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(user.startDate))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Central */}
+                    <div className="text-center relative z-10 flex-1 flex flex-col items-center">
+                        <p className="text-[10px] font-bold text-brand-600/60 uppercase tracking-[0.2em] mb-1">Registro Anterior</p>
+                        <p className="text-4xl font-black text-brand-900 tracking-tighter">
+                            {user.currentWeight}<span className="text-lg font-medium text-brand-600/40 ml-1">kg</span>
+                        </p>
+                        <div className="mt-1">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                {formatDate(user.lastWeightDate || user.startDate)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Scaler Image */}
+                    <div className="relative z-10 w-1/4 flex justify-end items-stretch">
+                        <img src={scalerImg} alt="Scale" className="h-[100px] sm:h-[110px] w-auto object-contain drop-shadow-xl transform group-hover:-translate-y-1 transition-transform" />
                     </div>
                 </div>
 
@@ -436,7 +663,7 @@ const Dashboard = ({ user, setUser }) => {
                 <div className="flex flex-col gap-3">
                     <Button
                         onClick={updateWeight}
-                        className="w-full py-5 rounded-[24px] text-lg font-black bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-xl shadow-brand-500/30 hover:shadow-brand-500/50 hover:-translate-y-0.5 transition-all active:translate-y-0"
+                        className="w-full py-5 rounded-[24px] text-lg font-black bg-gradient-to-r from-brand-600 to-brand-500 text-white hover:opacity-90 hover:-translate-y-0.5 transition-all active:translate-y-0"
                     >
                         Confirmar Peso
                     </Button>
@@ -449,11 +676,11 @@ const Dashboard = ({ user, setUser }) => {
                 </div>
             </Modal>
 
-            {/* Modal: Registro de Dose (InjectÃ¡vel ou Oral) */}
+            {/* Modal: Registro de Dose (Injectável ou Oral) */}
             <Modal
                 isOpen={showInjectionModal}
                 onClose={() => setShowInjectionModal(false)}
-                title={medication?.route === 'oral' ? "Registrar Dose" : "Confirmar AplicaÃ§Ã£o"}
+                title={medication?.route === 'oral' ? "Registrar Dose" : "Confirmar Aplicação"}
             >
                 <div className="space-y-4">
                     <div className="bg-slate-900 rounded-[28px] p-5 text-white overflow-hidden relative group">
@@ -461,7 +688,7 @@ const Dashboard = ({ user, setUser }) => {
                         <div className="relative z-10">
                             <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Dose a ser registrada</p>
                             <p className="text-2xl font-black flex items-center gap-2">
-                                {medication?.route === 'oral' ? 'ðŸ’Š' : 'ðŸ’‰'} {user.currentDose}
+                                {medication?.route === 'oral' ? '💊' : '💉'} {user.currentDose}
                                 <span className="text-sm font-medium text-white/40">({medication?.name})</span>
                             </p>
                         </div>
@@ -470,7 +697,7 @@ const Dashboard = ({ user, setUser }) => {
                     {medication?.route !== 'oral' && (
                         <>
                             <div>
-                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">Escolha o Local da AplicaÃ§Ã£o</label>
+                                <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">Escolha o Local da Aplicação</label>
                                 <BodySelector
                                     selectedSiteId={selectedSiteId || injectionSuggestion.id}
                                     onSelect={setSelectedSiteId}
@@ -481,14 +708,14 @@ const Dashboard = ({ user, setUser }) => {
 
                             {user.doseHistory?.[0]?.siteId === (selectedSiteId || injectionSuggestion.id) && (
                                 <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 animate-headShake">
-                                    <AlertBox type="warning" title="AtenÃ§Ã£o" message="VocÃª usou este local na Ãºltima aplicaÃ§Ã£o. Recomenda-se a rotaÃ§Ã£o." />
+                                    <AlertBox type="warning" title="Atenção" message="Você usou este local na última aplicação. Recomenda-se a rotação." />
                                 </div>
                             )}
                         </>
                     )}
 
                     <Button onClick={handleConfirmInjection} className="w-full py-5 rounded-[24px] text-lg font-black shadow-2xl">
-                        {medication?.route === 'oral' ? "Confirmar Dose âœ¨" : "Registrar AplicaÃ§Ã£o âœ¨"}
+                        {medication?.route === 'oral' ? "Confirmar Dose" : "Registrar Aplicação"}
                     </Button>
                 </div>
             </Modal>
@@ -501,39 +728,96 @@ const Dashboard = ({ user, setUser }) => {
             >
                 <div className="space-y-4 text-slate-600">
                     <p className="text-sm leading-relaxed">
-                        Perder mais de 1.5kg por semana de forma consistente pode indicar que vocÃª estÃ¡ perdendo **massa muscular** em vez de apenas gordura.
+                        Perder mais de 1.5kg por semana de forma consistente pode indicar que você está perdendo **massa muscular** em vez de apenas gordura.
                     </p>
                     <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100">
                         <h4 className="font-bold text-brand-700 text-xs uppercase mb-2">Como prevenir</h4>
                         <ul className="text-xs space-y-2 list-disc ml-4">
-                            <li>Aumente a ingestÃ£o de proteÃ­nas (mÃ­nimo 1.2g/kg).</li>
-                            <li>Inicie ou mantenha exercÃ­cios de resistÃªncia.</li>
-                            <li>Garanta uma hidrataÃ§Ã£o rigorosa (2.5L+).</li>
+                            <li>Aumente a ingestão de proteínas (mínimo 1.2g/kg).</li>
+                            <li>Inicie ou mantenha exercícios de resistência.</li>
+                            <li>Garanta uma hidratação rigorosa (2.5L+).</li>
                         </ul>
                     </div>
                 </div>
             </Modal>
 
-            {/* Modal: PlatÃ´ */}
+            {/* Modal: Platô */}
             <Modal
                 isOpen={showPlateauInfo}
                 onClose={() => setShowPlateauInfo(false)}
-                title="O que Ã© o PlatÃ´?"
+                title="O que é o Platô?"
             >
                 <div className="space-y-4 text-slate-600">
                     <p className="text-sm leading-relaxed">
-                        O platÃ´ ocorre quando o corpo se adapta Ã  nova ingestÃ£o calÃ³rica e estabiliza o peso. Ã‰ uma parte natural de qualquer jornada de emagrecimento.
+                        O platô ocorre quando o corpo se adapta Ã  nova ingestão calórica e estabiliza o peso. É uma parte natural de qualquer jornada de emagrecimento.
                     </p>
                     <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
                         <h4 className="font-bold text-orange-700 text-xs uppercase mb-2">Dicas para quebrar</h4>
                         <ul className="text-xs space-y-2 list-disc ml-4">
-                            <li>Varie os tipos de exercÃ­cios fÃ­sicos.</li>
-                            <li>Revise seu diÃ¡rio alimentar.</li>
+                            <li>Varie os tipos de exercícios físicos.</li>
+                            <li>Revise seu diário alimentar.</li>
                             <li>Tire novas medidas.</li>
                         </ul>
                     </div>
                 </div>
             </Modal>
+            {/* Fullscreen Photo Overlay */}
+            {isFullscreenPhoto && user.photos && user.photos.length > 0 && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
+                    onClick={() => setIsFullscreenPhoto(false)}
+                >
+                    <div
+                        className="relative w-full h-[85vh] max-w-lg bg-slate-100 rounded-[40px] overflow-hidden shadow-2xl flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <img src={typeof (user.photos[currentPhotoIndex] || user.photos[0]) === 'string' ? (user.photos[currentPhotoIndex] || user.photos[0]) : (user.photos[currentPhotoIndex] || user.photos[0])?.url} alt="Evolução" className="w-full h-full object-cover" />
+                        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+
+                        {/* Actions overlay */}
+                        <div className="absolute inset-x-0 pt-6 px-6 flex justify-between items-center z-20 pointer-events-none">
+                            <span className="text-xs font-black text-white/90 uppercase tracking-widest drop-shadow-md bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm">Sua Evolução</span>
+                            <div className="flex items-center gap-3">
+                                <button onClick={deletePhoto} className="w-10 h-10 rounded-full bg-red-500/80 backdrop-blur-md flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer text-white shadow-lg pointer-events-auto">
+                                    <Trash2 size={18} />
+                                </button>
+                                <label htmlFor="photo-upload" className="w-10 h-10 rounded-full bg-white backdrop-blur-md flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer text-slate-500 shadow-lg pointer-events-auto">
+                                    <Plus size={20} />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Navigation & Pagination Indicators */}
+                        <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-3 z-10 w-full px-6">
+                            {typeof (user.photos[currentPhotoIndex] || user.photos[0]) !== 'string' && (
+                                <span className="text-white text-xs font-black tracking-widest drop-shadow-md">
+                                    {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(((user.photos[currentPhotoIndex] || user.photos[0])).date)).replace('/', '-')}
+                                </span>
+                            )}
+                            <div className="flex w-full items-center justify-between">
+                                {user.photos.length > 1 ? (
+                                    <button onClick={prevPhoto} className="w-12 h-12 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                        <ChevronLeft size={28} />
+                                    </button>
+                                ) : <div className="w-12 shrink-0"></div>}
+
+                                <div className="flex justify-center gap-2 flex-1 mx-4">
+                                    {user.photos.map((_, i) => (
+                                        <div key={i} className={`h-2 rounded-full transition-all duration-300 ${currentPhotoIndex === i ? 'w-6 bg-white' : 'w-2 bg-white/40'}`}></div>
+                                    ))}
+                                </div>
+
+                                {user.photos.length > 1 ? (
+                                    <button onClick={nextPhoto} className="w-12 h-12 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                        <ChevronRight size={28} />
+                                    </button>
+                                ) : <div className="w-12 shrink-0"></div>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Home, PenLine, BarChart3, Settings } from 'lucide-react';
+import { Home, PenLine, BarChart3, Settings, CalendarDays } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import Logs from './components/Logs';
 import Charts from './components/Charts';
 import Profile from './components/Profile';
+import CalendarView from './components/CalendarView';
 import Onboarding from './components/Onboarding';
 import LandingPage from './components/LandingPage';
 
@@ -123,6 +124,7 @@ const App = () => {
         switch (activeTab) {
             case 'home': return <Dashboard user={user} setUser={setUser} />;
             case 'logs': return <Logs user={user} />;
+            case 'calendar': return <CalendarView user={user} />;
             case 'charts': return <Charts user={user} />;
             case 'profile': return <Profile user={user} onReset={handleReset} />;
             default: return <Dashboard user={user} setUser={setUser} />;
@@ -199,6 +201,7 @@ const App = () => {
             <nav className="fixed bottom-6 left-5 right-5 h-16 bg-white/90 backdrop-blur-md rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-white/50 flex justify-around items-center px-2 z-40 max-w-sm mx-auto">
                 <NavItem icon={Home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
                 <NavItem icon={PenLine} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
+                <NavItem icon={CalendarDays} active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
                 <NavItem icon={BarChart3} active={activeTab === 'charts'} onClick={() => setActiveTab('charts')} />
                 <NavItem icon={Settings} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
             </nav>

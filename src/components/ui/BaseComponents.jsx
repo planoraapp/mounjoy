@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 export const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
     const baseStyle = "py-3 px-6 rounded-2xl font-semibold transition-all duration-200 active:scale-95 flex items-center justify-center gap-2";
     const variants = {
-        primary: "bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-lg shadow-teal-500/20 hover:shadow-teal-500/40",
+        primary: "bg-gradient-to-r from-teal-600 to-teal-500 text-white hover:opacity-90",
         secondary: "bg-white text-slate-700 border border-slate-200 shadow-sm hover:border-teal-200 hover:bg-teal-50",
         ghost: "bg-transparent text-slate-500 hover:text-teal-600",
         danger: "bg-red-50 text-red-500 border border-red-100 hover:bg-red-100"
@@ -75,8 +75,8 @@ export const VerticalMeter = ({ value, max, label, lines, color = "teal" }) => {
     const percentage = Math.min((value / max) * 100, 100);
 
     const colorMap = {
-        teal:   { bar: "bg-teal-400",   pct: "text-teal-300"   },
-        blue:   { bar: "bg-blue-400",   pct: "text-blue-300"   },
+        teal: { bar: "bg-teal-400", pct: "text-teal-300" },
+        blue: { bar: "bg-blue-400", pct: "text-blue-300" },
         orange: { bar: "bg-orange-400", pct: "text-orange-300" },
     };
     const c = colorMap[color] || colorMap.teal;
@@ -120,9 +120,32 @@ export const VerticalMeter = ({ value, max, label, lines, color = "teal" }) => {
     );
 };
 
-
 export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
     const percentage = ((parseFloat(value) - min) / (max - min)) * 100;
+    const lastSnapped = React.useRef(null);
+
+    const handleSliderChange = (e) => {
+        let val = parseFloat(e.target.value);
+        const nearestInt = Math.round(val);
+        const distance = Math.abs(val - nearestInt);
+
+        // Snapping: if close to an integer, snap to it
+        if (distance <= 0.2) {
+            val = nearestInt;
+
+            // Haptic feedback (vibration) when snapping to a new integer
+            if (lastSnapped.current !== val) {
+                lastSnapped.current = val;
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(15);
+                }
+            }
+        } else {
+            lastSnapped.current = null;
+        }
+
+        onChange(val);
+    };
 
     return (
         <div className="mb-8">
@@ -149,7 +172,7 @@ export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
                         max={max}
                         step={step}
                         value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={handleSliderChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
                     <div
