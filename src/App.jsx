@@ -8,6 +8,9 @@ import CalendarView from './components/CalendarView';
 import Onboarding from './components/Onboarding';
 import LandingPage from './components/LandingPage';
 
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
+
 const NavItem = ({ icon: Icon, active, onClick }) => (
     <button
         onClick={onClick}
@@ -43,7 +46,8 @@ const USFlag = () => (
     </svg>
 );
 
-const App = () => {
+const MainApp = () => {
+    const { currentUser, logout } = useAuth();
     const [user, setUser] = useState(null);
     const [activeTab, setActiveTab] = useState('home');
     const [loading, setLoading] = useState(true);
@@ -51,38 +55,26 @@ const App = () => {
     const [language, setLanguage] = useState('pt');
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('mounjoy_user2');
+        // We still use local storage for profile data for now, 
+        // but we reference the firebase uid to keep it isolated per user
+        const savedUser = localStorage.getItem(`mounjoy_user_${currentUser?.uid}`);
         if (savedUser) {
             const parsed = JSON.parse(savedUser);
-            // Quick migration for existing users
-            const migrated = {
-                ...parsed,
-                doseHistory: parsed.doseHistory || [],
-                sideEffectsLogs: parsed.sideEffectsLogs || [],
-                measurements: parsed.measurements || [],
-                dailyIntakeHistory: parsed.dailyIntakeHistory || {},
-                isMaintenance: parsed.isMaintenance || false,
-                settings: {
-                    remindersEnabled: true,
-                    proteinGoal: 100,
-                    waterGoal: 2.5,
-                    ...parsed.settings
-                }
-            };
-            setUser(migrated);
+            setUser(parsed);
         }
         setLoading(false);
-    }, []);
+    }, [currentUser]);
 
     const handleOnboardingComplete = (data) => {
         const now = new Date().toISOString();
         const newUser = {
             ...data,
+            uid: currentUser.uid,
+            email: currentUser.email,
             currentWeight: parseFloat(data.startWeight),
             history: [parseFloat(data.startWeight)],
             startDate: now,
             lastWeightDate: now,
-            // New Structures for Scale
             doseHistory: [{
                 date: now,
                 dose: data.currentDose,
@@ -91,7 +83,7 @@ const App = () => {
             }],
             sideEffectsLogs: [],
             measurements: [],
-            dailyIntakeHistory: {}, // Format: { "YYYY-MM-DD": { water: 0, protein: 0 } }
+            dailyIntakeHistory: {},
             isMaintenance: false,
             settings: {
                 remindersEnabled: true,
@@ -100,11 +92,11 @@ const App = () => {
             }
         };
         setUser(newUser);
-        localStorage.setItem('mounjoy_user2', JSON.stringify(newUser));
+        localStorage.setItem(`mounjoy_user_${currentUser.uid}`, JSON.stringify(newUser));
     };
 
-    const handleReset = () => {
-        localStorage.removeItem('mounjoy_user2');
+    const handleReset = async () => {
+        await logout();
         setUser(null);
         setActiveTab('home');
         setStartedOnboarding(false);
@@ -143,7 +135,6 @@ const App = () => {
 
     return (
         <div className="min-h-screen bg-transparent pb-24 selection:bg-brand-100">
-            {/* Minimalist Header */}
             <header className="px-6 py-6 flex justify-between items-center bg-transparent max-w-md mx-auto">
                 <div>
                     <h1 className="text-2xl font-bold text-brand-900 tracking-tight">Olá, {user.name}</h1>
@@ -152,37 +143,17 @@ const App = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Language Switcher */}
                     <div className="relative group">
                         <button
                             onClick={() => setLanguage(l => l === 'pt' ? 'en' : 'pt')}
                             className="w-10 h-10 bg-white rounded-xl shadow-soft border border-slate-100 hover:shadow-lg transition-all overflow-hidden flex items-center justify-center active:scale-95"
-                            title={language === 'pt' ? 'Switch to English' : 'Mudar para Português'}
                         >
                             <div className="w-7 h-5 rounded-sm overflow-hidden">
                                 {language === 'pt' ? <BRFlag /> : <USFlag />}
                             </div>
                         </button>
-                        {/* Dropdown hint */}
-                        <div className="absolute top-full right-0 mt-2 w-24 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 translate-y-1 group-hover:translate-y-0 z-50">
-                            <button
-                                onClick={() => setLanguage('pt')}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold transition-colors ${language === 'pt' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                <div className="w-6 h-4 rounded-sm overflow-hidden shrink-0"><BRFlag /></div>
-                                PT-BR
-                            </button>
-                            <button
-                                onClick={() => setLanguage('en')}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-bold transition-colors ${language === 'en' ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                            >
-                                <div className="w-6 h-4 rounded-sm overflow-hidden shrink-0"><USFlag /></div>
-                                EN-US
-                            </button>
-                        </div>
                     </div>
 
-                    {/* Profile Avatar */}
                     <div
                         className="w-12 h-12 bg-white rounded-2xl shadow-soft flex items-center justify-center border border-slate-100 cursor-pointer hover:shadow-lg transition-shadow"
                         onClick={() => setActiveTab('profile')}
@@ -192,12 +163,10 @@ const App = () => {
                 </div>
             </header>
 
-            {/* Main Content Area */}
             <main className="px-6 max-w-md mx-auto">
                 {renderContent()}
             </main>
 
-            {/* Bottom Navigation (Floating Dock Style) */}
             <nav className="fixed bottom-6 left-5 right-5 h-16 bg-white/90 backdrop-blur-md rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-white/50 flex justify-around items-center px-2 z-40 max-w-sm mx-auto">
                 <NavItem icon={Home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
                 <NavItem icon={PenLine} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
@@ -206,6 +175,19 @@ const App = () => {
                 <NavItem icon={Settings} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
             </nav>
         </div>
+    );
+};
+
+const AppContent = () => {
+    const { currentUser } = useAuth();
+    return currentUser ? <MainApp /> : <Login />;
+};
+
+const App = () => {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
     );
 };
 
