@@ -9,31 +9,49 @@ export const userService = {
      * Gets or creates a user document in Firestore.
      */
     getUserProfile: async (uid) => {
-        const userRef = doc(db, 'users', uid);
-        const userSnap = await getDoc(userRef);
-        return userSnap.exists() ? userSnap.data() : null;
+        try {
+            const userRef = doc(db, 'users', uid);
+            const userSnap = await getDoc(userRef);
+            return userSnap.exists() ? userSnap.data() : null;
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+            throw error;
+        }
     },
 
     /**
      * Saves or overwrites the entire user profile.
      */
     saveUserProfile: async (uid, userData) => {
-        const userRef = doc(db, 'users', uid);
-        await setDoc(userRef, {
-            ...userData,
-            updatedAt: new Date().toISOString()
-        }, { merge: true });
+        try {
+            const userRef = doc(db, 'users', uid);
+            await setDoc(userRef, {
+                ...userData,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+        } catch (error) {
+            console.error("Error saving user profile:", error);
+            if (error.code === 'permission-denied') {
+                console.error("Permission denied. check Firestore rules.");
+            }
+            throw error;
+        }
     },
 
     /**
      * Updates specific fields in the user profile.
      */
     updateUserData: async (uid, data) => {
-        const userRef = doc(db, 'users', uid);
-        await updateDoc(userRef, {
-            ...data,
-            updatedAt: new Date().toISOString()
-        });
+        try {
+            const userRef = doc(db, 'users', uid);
+            await updateDoc(userRef, {
+                ...data,
+                updatedAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error("Error updating user data:", error);
+            throw error;
+        }
     },
 
     /**
@@ -47,6 +65,9 @@ export const userService = {
             } else {
                 callback(null);
             }
+        }, (error) => {
+            console.error("Firestore subscription error:", error);
+            // Optionally notify the UI about the error
         });
     }
 };

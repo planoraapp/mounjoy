@@ -148,7 +148,7 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const maxSize = 800; // compress limits
+                const maxSize = 600; // more conservative limits for Firestore base64 storage
                 let width = img.width;
                 let height = img.height;
                 if (width > height) {
@@ -160,7 +160,7 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/webp', 0.9);
+                const dataUrl = canvas.toDataURL('image/webp', 0.7);
 
                 const newPhoto = { url: dataUrl, date: new Date().toISOString() };
                 const updatedPhotos = [...(user.photos || []), newPhoto];
@@ -191,16 +191,16 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
     };
 
     const nextPhoto = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
         if (user.photos?.length > 1) {
             setCurrentPhotoIndex((prev) => (prev + 1) % user.photos.length);
         }
     };
 
     const prevPhoto = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
         if (user.photos?.length > 1) {
             setCurrentPhotoIndex((prev) => (prev - 1 + user.photos.length) % user.photos.length);
         }
@@ -366,46 +366,61 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
                     <input type="file" id="photo-upload" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
 
                     {user.photos && user.photos.length > 0 ? (
-                        <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-100 cursor-pointer rounded-[40px] overflow-hidden" onClick={() => setIsFullscreenPhoto(true)}>
-                            <img src={typeof (user.photos[currentPhotoIndex] || user.photos[0]) === 'string' ? (user.photos[currentPhotoIndex] || user.photos[0]) : (user.photos[currentPhotoIndex] || user.photos[0])?.url} alt="Evolução" className="w-full h-full object-cover" />
-                            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                        <>
+                            <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-100 cursor-pointer rounded-[40px] overflow-hidden" onClick={() => setIsFullscreenPhoto(true)}>
+                                <img src={typeof (user.photos[currentPhotoIndex] || user.photos[0]) === 'string' ? (user.photos[currentPhotoIndex] || user.photos[0]) : (user.photos[currentPhotoIndex] || user.photos[0])?.url} alt="Evolução" className="w-full h-full object-cover" />
+                                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
 
-                            {/* Actions overlay */}
-                            <div className="absolute inset-x-0 pt-4 px-4 flex justify-between items-center z-20 pointer-events-none">
-                                <span className="text-[10px] font-black text-white/90 uppercase tracking-widest drop-shadow-md bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">Sua Evolução</span>
-                                <label htmlFor="photo-upload" className="w-8 h-8 rounded-full bg-white backdrop-blur-md flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer text-slate-500 shadow-lg pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                                    <Plus size={16} />
-                                </label>
+                                {/* Actions overlay */}
+                                <div className="absolute inset-x-0 pt-4 px-4 flex justify-between items-center z-20 pointer-events-none">
+                                    <span className="text-[10px] font-black text-white/90 uppercase tracking-widest drop-shadow-md bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">Sua Evolução</span>
+                                    <label htmlFor="photo-upload" className="w-8 h-8 rounded-full bg-white backdrop-blur-md flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer text-slate-500 shadow-lg pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                                        <Plus size={16} />
+                                    </label>
+                                </div>
                             </div>
 
-                            {/* Navigation & Pagination Indicators */}
-                            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 z-10 w-full px-4">
+                            {/* Unified Bottom Controls - Navigation, Date and Pagination */}
+                            <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-2 z-50 px-4 pointer-events-none">
+                                {/* Photo Date Badge */}
                                 {typeof (user.photos[currentPhotoIndex] || user.photos[0]) !== 'string' && (
-                                    <span className="text-white text-[10px] font-black tracking-widest drop-shadow-md">
+                                    <span className="text-white text-[10px] font-black tracking-widest drop-shadow-md uppercase bg-black/10 px-2 py-0.5 rounded-full backdrop-blur-[2px]">
                                         {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(((user.photos[currentPhotoIndex] || user.photos[0])).date)).replace('/', '-')}
                                     </span>
                                 )}
-                                <div className="flex w-full items-center justify-between">
+
+                                <div className="flex w-full items-center justify-between pointer-events-auto">
+                                    {/* Prev Button */}
                                     {user.photos.length > 1 ? (
-                                        <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} className="w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); prevPhoto(e); }}
+                                            className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/50 transition-all active:scale-90 cursor-pointer shadow-lg border border-white/5 whitespace-nowrap"
+                                            aria-label="Foto anterior"
+                                        >
                                             <ChevronLeft size={20} />
                                         </button>
-                                    ) : <div className="w-8 shrink-0"></div>}
+                                    ) : <div className="w-8"></div>}
 
-                                    <div className="flex justify-center gap-1.5 flex-1 mx-2">
+                                    {/* Pagination Dots */}
+                                    <div className="flex justify-center gap-1.5 mx-2">
                                         {user.photos.map((_, i) => (
                                             <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${currentPhotoIndex === i ? 'w-4 bg-white' : 'w-1.5 bg-white/40'}`}></div>
                                         ))}
                                     </div>
 
+                                    {/* Next Button */}
                                     {user.photos.length > 1 ? (
-                                        <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} className="w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center hover:bg-black/40 transition-colors text-white z-20 shrink-0">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); nextPhoto(e); }}
+                                            className="w-8 h-8 rounded-full bg-black/30 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/50 transition-all active:scale-90 cursor-pointer shadow-lg border border-white/5 whitespace-nowrap"
+                                            aria-label="Próxima foto"
+                                        >
                                             <ChevronRight size={20} />
                                         </button>
-                                    ) : <div className="w-8 shrink-0"></div>}
+                                    ) : <div className="w-8"></div>}
                                 </div>
                             </div>
-                        </div>
+                        </>
                     ) : (
                         <label htmlFor="photo-upload" className="w-full h-full absolute inset-0 flex flex-col items-center justify-center p-6 cursor-pointer opacity-80 hover:opacity-100 hover:bg-slate-200 transition-colors border-none m-0">
                             <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">

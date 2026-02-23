@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Bell, LogOut, Check, TrendingUp, Scale } from 'lucide-react';
+import { Settings, Bell, LogOut, Check, TrendingUp, Scale, Camera } from 'lucide-react';
 import { Modal, Button } from './ui/BaseComponents';
 import BodySelector from './ui/BodySelector';
 import { suggestNextInjection, getSiteById } from '../services/InjectionService';
@@ -102,6 +102,38 @@ const Profile = ({ user, onReset, setUser }) => {
         });
     };
 
+    const handlePhotoUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const maxSize = 400; // Smaller for profile pic
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+                } else {
+                    if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/webp', 0.6);
+
+                setUser({
+                    ...user,
+                    photoURL: dataUrl
+                });
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
     const currentMedInfo = MOCK_MEDICATIONS.find(m => m.id === selectedMed) || MOCK_MEDICATIONS[0];
 
     return (
@@ -109,9 +141,32 @@ const Profile = ({ user, onReset, setUser }) => {
             <div className="text-center mt-8 mb-8">
                 <div className="relative w-28 h-28 mx-auto mb-4">
                     <div className="absolute inset-0 bg-brand-200 rounded-full blur-xl opacity-50"></div>
-                    <div className="relative w-full h-full bg-gradient-to-tr from-brand-600 to-brand-400 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white">
-                        {user.name?.charAt(0).toUpperCase() || 'U'}
+                    <div className="relative w-full h-full bg-gradient-to-tr from-brand-600 to-brand-400 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white overflow-hidden">
+                        {user.photoURL ? (
+                            <img
+                                src={user.photoURL}
+                                alt={user.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => e.target.style.display = 'none'}
+                            />
+                        ) : (
+                            user.name?.charAt(0).toUpperCase() || 'U'
+                        )}
                     </div>
+                    <label
+                        htmlFor="profile-photo-upload"
+                        className="absolute bottom-0 right-0 w-9 h-9 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-500 cursor-pointer hover:text-brand-600 transition-colors border-2 border-slate-50 active:scale-90"
+                        title="Alterar foto de perfil"
+                    >
+                        <Camera size={18} />
+                        <input
+                            type="file"
+                            id="profile-photo-upload"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                        />
+                    </label>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 font-outfit">{user.name}</h2>
                 <p className="text-brand-600 font-medium bg-brand-50 inline-block px-3 py-1 rounded-full text-sm mt-2">
