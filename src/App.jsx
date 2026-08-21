@@ -13,9 +13,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import { userService } from './services/userService';
 
-const NavItem = ({ icon: Icon, active, onClick }) => (
+const NavItem = ({ icon: Icon, active, onClick, testId }) => (
     <button
         onClick={onClick}
+        data-testid={testId}
         className={`p-3 transition-all duration-300 ${active
             ? 'text-brand'
             : 'text-slate-400 hover:text-brand'
@@ -52,7 +53,7 @@ const MainApp = ({ guestUser, setGuestUser, theme, setTheme }) => {
         }
     }, [currentUser, showLoginModal]);
 
-    // Migration Bridge: LocalStorage -> Firestore
+    // Migration Bridge: LocalStorage -> Supabase
     useEffect(() => {
         const performMigration = async () => {
             if (currentUser && !userData && !isMigrating) {
@@ -140,7 +141,7 @@ const MainApp = ({ guestUser, setGuestUser, theme, setTheme }) => {
     const medicationName = user.medicationId ? (user.medicationId.charAt(0).toUpperCase() + user.medicationId.slice(1)) : 'Protocolo';
 
     return (
-        <div className={`min-h-screen pb-24 selection:bg-brand-100 transition-colors duration-500 bg-[#fdf5eb]`}>
+        <div data-testid="main-app-screen" className={`min-h-screen pb-24 selection:bg-brand-100 transition-colors duration-500 bg-[#fdf5eb]`}>
             <header className="px-6 py-6 flex justify-between items-center bg-transparent max-w-md mx-auto">
                 <div>
                     <div className="flex items-center gap-2">
@@ -154,6 +155,7 @@ const MainApp = ({ guestUser, setGuestUser, theme, setTheme }) => {
                 <div
                     className="relative w-12 h-12 bg-white rounded-2xl shadow-soft flex items-center justify-center border border-slate-100 cursor-pointer hover:shadow-lg transition-all"
                     onClick={handleAvatarClick}
+                    data-testid="avatar-button"
                 >
                     {user.photoURL ? (
                         <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
@@ -182,14 +184,16 @@ const MainApp = ({ guestUser, setGuestUser, theme, setTheme }) => {
                                         <h4 className="text-base font-black text-slate-800 uppercase tracking-widest">Salve seu progresso</h4>
                                         <p className="text-xs font-semibold text-slate-400 leading-relaxed">Seus dados atuais não ficarão salvos. Registre-se para não perder nada!</p>
                                     </div>
-                                    <Button 
+                                    <Button
                                         onClick={(e) => { e.stopPropagation(); setShowLoginModal(true); setShowGuestNotice(false); }}
+                                        data-testid="guest-create-account-button"
                                         className="w-full py-4 text-sm font-black shadow-lg shadow-brand-500/20"
                                     >
                                         Criar Conta e Salvar
                                     </Button>
-                                    <button 
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); setShowGuestNotice(false); }}
+                                        data-testid="guest-continue-button"
                                         className="text-xs font-bold text-slate-300 hover:text-slate-500 transition-colors uppercase tracking-widest pt-1"
                                     >
                                         Continuar como Visitante
@@ -216,11 +220,11 @@ const MainApp = ({ guestUser, setGuestUser, theme, setTheme }) => {
             </main>
 
             <nav className="fixed bottom-6 left-5 right-5 h-16 bg-white/90 backdrop-blur-md rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-white/50 flex justify-around items-center px-2 z-40 max-w-sm mx-auto">
-                <NavItem icon={Home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-                <NavItem icon={PenLine} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} />
-                <NavItem icon={CalendarDays} active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
-                <NavItem icon={BarChart3} active={activeTab === 'charts'} onClick={() => setActiveTab('charts')} />
-                <NavItem icon={Settings} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
+                <NavItem icon={Home} active={activeTab === 'home'} onClick={() => setActiveTab('home')} testId="nav-home" />
+                <NavItem icon={PenLine} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} testId="nav-logs" />
+                <NavItem icon={CalendarDays} active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} testId="nav-calendar" />
+                <NavItem icon={BarChart3} active={activeTab === 'charts'} onClick={() => setActiveTab('charts')} testId="nav-charts" />
+                <NavItem icon={Settings} active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} testId="nav-profile" />
             </nav>
         </div>
     );

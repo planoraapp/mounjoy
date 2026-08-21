@@ -80,7 +80,7 @@ const Login = ({ onBack, showBack = true }) => {
                     </div>
 
                     {error && (
-                        <div className="bg-red-50 text-red-500 p-4 rounded-2xl text-xs font-bold border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div data-testid="login-error" className="bg-red-50 text-red-500 p-4 rounded-2xl text-xs font-bold border border-red-100 animate-in fade-in slide-in-from-top-2 duration-300">
                             {error}
                         </div>
                     )}
@@ -93,6 +93,7 @@ const Login = ({ onBack, showBack = true }) => {
                             <input
                                 type="email"
                                 placeholder="Seu e-mail"
+                                data-testid="login-email-input"
                                 className="w-full h-14 pl-12 pr-4 bg-slate-50/50 border-none rounded-2xl text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -107,6 +108,7 @@ const Login = ({ onBack, showBack = true }) => {
                             <input
                                 type="password"
                                 placeholder="Sua senha"
+                                data-testid="login-password-input"
                                 className="w-full h-14 pl-12 pr-4 bg-slate-50/50 border-none rounded-2xl text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -118,6 +120,7 @@ const Login = ({ onBack, showBack = true }) => {
                         <Button
                             type="submit"
                             disabled={loading}
+                            data-testid="login-submit-button"
                             className="w-full h-14 rounded-2xl bg-indigo-500 hover:bg-indigo-600 font-black text-white shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 group mt-2"
                         >
                             {loading ? 'Processando...' : isLogin ? 'Entrar Agora' : 'Criar Conta'}
@@ -134,6 +137,7 @@ const Login = ({ onBack, showBack = true }) => {
                     <button
                         onClick={handleGoogleLogin}
                         disabled={loading}
+                        data-testid="login-google-button"
                         className="w-full h-14 rounded-2xl bg-white border border-slate-100 hover:bg-slate-50 font-bold text-slate-600 shadow-sm flex items-center justify-center gap-3 transition-colors active:scale-95"
                     >
                         <Chrome size={20} className="text-slate-500" />
@@ -147,6 +151,7 @@ const Login = ({ onBack, showBack = true }) => {
                     </p>
                     <button
                         onClick={() => setIsLogin(!isLogin)}
+                        data-testid="login-toggle-mode"
                         className="flex items-center gap-2 px-6 py-2 rounded-full border border-slate-200 hover:border-indigo-200 hover:bg-indigo-50/30 text-slate-600 font-bold text-sm transition-all active:scale-95"
                     >
                         {isLogin ? (

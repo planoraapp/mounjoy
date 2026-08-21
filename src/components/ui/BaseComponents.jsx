@@ -122,7 +122,7 @@ export const VerticalMeter = ({ value, max, label, lines, color = "brand" }) => 
     );
 };
 
-export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
+export const Slider = ({ label, value, onChange, min, max, step, suffix, testId }) => {
     const percentage = ((parseFloat(value) - min) / (max - min)) * 100;
     const lastSnapped = React.useRef(null);
 
@@ -188,6 +188,7 @@ export const Slider = ({ label, value, onChange, min, max, step, suffix }) => {
                         type="number"
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
+                        data-testid={testId}
                         className="w-full bg-white border border-slate-100 rounded-[20px] py-4 text-center font-black text-brand-900 focus:ring-2 focus:ring-brand-500 text-xl shadow-sm tabular-nums"
                         step={step}
                     />

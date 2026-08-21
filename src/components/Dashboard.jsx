@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Activity, Plus, Heart, Droplet, Info, Thermometer, Zap, TrendingUp, Syringe, Calendar, Camera, ChevronLeft, ChevronRight, Trash2, PenLine } from 'lucide-react';
+import { Plus, Zap, TrendingUp, Camera, ChevronLeft, ChevronRight, Trash2, PenLine } from 'lucide-react';
 import { Modal, Input, Button, VerticalMeter, Slider } from './ui/BaseComponents';
 import AlertBox from './ui/AlertBox';
 import BodySelector from './ui/BodySelector';
@@ -79,19 +79,16 @@ const ConfettiExplosion = React.memo(() => {
     );
 });
 
-const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
+const Dashboard = ({ user, setUser, setActiveTab }) => {
     const [simulatedDays, setSimulatedDays] = useState(0); // DEBUG_ONLY
     const medication = MOCK_MEDICATIONS.find(m => m.id === user.medicationId);
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [newWeight, setNewWeight] = useState('');
     const [showInjectionModal, setShowInjectionModal] = useState(false);
     const [selectedSiteId, setSelectedSiteId] = useState(null);
-    const [showSpeedInfo, setShowSpeedInfo] = useState(false);
-    const [showPlateauInfo, setShowPlateauInfo] = useState(false);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState((user.photos && user.photos.length > 0) ? user.photos.length - 1 : 0);
     const [animatingAsset, setAnimatingAsset] = useState(null);
     const [isFullscreenPhoto, setIsFullscreenPhoto] = useState(false);
-    const [showDoseHelp, setShowDoseHelp] = useState(false);
     const [showBodyMap, setShowBodyMap] = useState(false);
     const [isEditingProtocol, setIsEditingProtocol] = useState(false);
     const [tempProtocol, setTempProtocol] = useState({ medicationId: user.medicationId, currentDose: user.currentDose });
@@ -126,7 +123,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         if (!isDragging) return;
         e.preventDefault();
         const x = e.pageX - scrollRef.current.offsetLeft;
-        const walk = (x - startX) * 2; 
+        const walk = (x - startX) * 2;
         scrollRef.current.scrollLeft = scrollLeft - walk;
     };
 
@@ -156,6 +153,11 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
     const updateIntake = (type, amount) => {
         const currentAmount = dailyData[type] || 0;
         const newAmount = Math.max(0, currentAmount + amount);
+        const goal = type === 'water' ? (user.settings?.waterGoal || 2.5)
+            : type === 'protein' ? (user.settings?.proteinGoal || 100)
+                : (user.settings?.fiberGoal || 25);
+        // Mascote e confete só disparam ao cruzar a meta, não a cada clique em "+".
+        const justCompleted = amount > 0 && currentAmount < goal && newAmount >= goal;
 
         const updatedHistory = {
             ...user.dailyIntakeHistory,
@@ -171,37 +173,40 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         });
 
         setAnimatingAsset(type);
-        if (type === 'water' && amount > 0) {
-            setShowHydratedMascot(true);
-            setIsHydrationZooming(true);
-            setTimeout(() => setIsHydrationZooming(false), 200);
 
-            if (hydrationTimerRef.current) clearTimeout(hydrationTimerRef.current);
-            hydrationTimerRef.current = setTimeout(() => {
-                setShowHydratedMascot(false);
-            }, 1500);
-        }
+        if (justCompleted) {
+            if (type === 'water') {
+                setShowHydratedMascot(true);
+                setIsHydrationZooming(true);
+                setTimeout(() => setIsHydrationZooming(false), 200);
 
-        if (type === 'protein' && amount > 0) {
-            setShowProteinMascot(true);
-            setIsProteinZooming(true);
-            setTimeout(() => setIsProteinZooming(false), 200);
+                if (hydrationTimerRef.current) clearTimeout(hydrationTimerRef.current);
+                hydrationTimerRef.current = setTimeout(() => {
+                    setShowHydratedMascot(false);
+                }, 2000);
+            }
 
-            if (proteinTimerRef.current) clearTimeout(proteinTimerRef.current);
-            proteinTimerRef.current = setTimeout(() => {
-                setShowProteinMascot(false);
-            }, 1500);
-        }
+            if (type === 'protein') {
+                setShowProteinMascot(true);
+                setIsProteinZooming(true);
+                setTimeout(() => setIsProteinZooming(false), 200);
 
-        if (type === 'fiber' && amount > 0) {
-            setShowFiberMascot(true);
-            setIsFiberZooming(true);
-            setTimeout(() => setIsFiberZooming(false), 200);
+                if (proteinTimerRef.current) clearTimeout(proteinTimerRef.current);
+                proteinTimerRef.current = setTimeout(() => {
+                    setShowProteinMascot(false);
+                }, 2000);
+            }
 
-            if (fiberTimerRef.current) clearTimeout(fiberTimerRef.current);
-            fiberTimerRef.current = setTimeout(() => {
-                setShowFiberMascot(false);
-            }, 1500);
+            if (type === 'fiber') {
+                setShowFiberMascot(true);
+                setIsFiberZooming(true);
+                setTimeout(() => setIsFiberZooming(false), 200);
+
+                if (fiberTimerRef.current) clearTimeout(fiberTimerRef.current);
+                fiberTimerRef.current = setTimeout(() => {
+                    setShowFiberMascot(false);
+                }, 2000);
+            }
         }
         setTimeout(() => setAnimatingAsset(null), 300);
     };
@@ -246,19 +251,25 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const maxSize = 600; // more conservative limits for Firestore base64 storage
-                let width = img.width;
-                let height = img.height;
-                if (width > height) {
-                    if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+                // Center-crop para 3:4, espelhando o aspect:[3,4] do picker nativo.
+                const targetRatio = 3 / 4;
+                let sx = 0, sy = 0, sw = img.width, sh = img.height;
+                if (sw / sh > targetRatio) {
+                    sw = sh * targetRatio;
+                    sx = (img.width - sw) / 2;
                 } else {
-                    if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+                    sh = sw / targetRatio;
+                    sy = (img.height - sh) / 2;
                 }
+
+                const canvas = document.createElement('canvas');
+                const maxWidth = 600; // more conservative limits for storage
+                const width = Math.min(maxWidth, sw);
+                const height = width / targetRatio;
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
                 const dataUrl = canvas.toDataURL('image/webp', 0.7);
 
                 const newPhoto = { url: dataUrl, date: new Date().toISOString() };
@@ -391,7 +402,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         // DEBUG_ONLY: Use simulated date for the record
         const recordDate = new Date();
         recordDate.setDate(recordDate.getDate() + simulatedDays);
-        
+
         const newRecord = {
             date: recordDate.toISOString(),
             dose: user.currentDose,
@@ -408,7 +419,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
 
         setUser(updatedUser);
         localStorage.setItem('mounjoy_user2', JSON.stringify(updatedUser));
-        
+
         // Close all possible modals
         setShowInjectionModal(false);
         setShowBodyMap(false); // Fix: Close the new guide modal
@@ -439,43 +450,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         return matchesAdmin && matchesFocus;
     });
 
-    const healthInsights = useMemo(() => {
-        const startWeight = user.history[0];
-        const currentWeight = user.currentWeight;
-        const totalLost = startWeight - currentWeight;
-
-        const start = new Date(user.startDate);
-        const now = new Date();
-        const diffTime = Math.abs(now - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-        const weeks = diffDays / 7;
-
-        const speed = weeks > 0 ? totalLost / weeks : 0;
-
-        const insights = [];
-
-        if (speed > 1.5) {
-            insights.push({
-                type: 'danger',
-                title: 'Perda Acelerada',
-                message: `Você está perdendo em média ${speed.toFixed(1)}kg por semana. Cuidado com a perda de massa muscular. Aumente o aporte de proteínas.`,
-                onInfo: () => setShowSpeedInfo(true)
-            });
-        }
-
-        const lastWeights = user.history.slice(-3);
-        if (lastWeights.length >= 3 && lastWeights.every(v => v === lastWeights[0])) {
-            insights.push({
-                type: 'warning',
-                title: 'Platô Identificado',
-                message: 'Seu peso estabilizou nos últimos 3 registros. Tente variar os treinos.',
-                onInfo: () => setShowPlateauInfo(true)
-            });
-        }
-
-        return insights;
-    }, [user.currentWeight, user.history, user.startDate]);
-
     const dailyTip = useMemo(() => {
         const now = new Date();
         const start = new Date(now.getFullYear(), 0, 0);
@@ -489,35 +463,10 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
         <div className="space-y-6 pb-6">
             <DoseAlert reminder={reminder} onAction={() => setActiveTab('profile')} />
 
-            {/* Health Insights Section */}
-            {(healthInsights.length > 0) && (
-                <div className="space-y-3 stagger-1 fade-in">
-                    <h3 className={`text-lg font-bold ml-1 font-outfit ${theme === 'fun' ? 'text-orange-500' : 'text-slate-800'}`}>Insights de Saúde</h3>
-                    {healthInsights.map((insight, index) => (
-                        <div key={index} className="relative group">
-                            <div className={`${theme === 'fun' ? 'animate-bounce-subtle' : ''}`}>
-                                <AlertBox
-                                    type={insight.type}
-                                    title={insight.title}
-                                    message={insight.message}
-                                />
-                            </div>
-                            <button
-                                onClick={insight.onInfo}
-                                className="absolute top-4 right-4 text-slate-400 hover:text-brand transition-colors"
-                            >
-                                <Info size={16} />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Fun Mascot Highlight for Food Noise / Reminders */}
-            {theme === 'fun' && (
-                <div className="stagger-1 fade-in">
-                    {/* Food Noise Alert */}
-                    {(cycleInfo.daysSinceDose >= 5) ? (
+            {/* Mascot Highlight for Food Noise / Reminders */}
+            <div className="stagger-1 fade-in">
+                {/* Food Noise Alert */}
+                {(cycleInfo.daysSinceDose >= 5) ? (
                         <div className="bg-orange-400 rounded-[40px] p-6 text-white shadow-xl relative overflow-hidden group mb-4">
                             <div className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20 group-hover:scale-125 transition-transform">
                                 <img src={mascotStrong} alt="Strong Mascot" className="w-full h-auto" />
@@ -534,7 +483,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             </div>
                         </div>
                     ) : (cycleInfo.daysSinceDose === 0) ? (
-                         <div className="bg-blue-600 rounded-[40px] p-6 text-white shadow-xl relative overflow-hidden group mb-4">
+                        <div className="bg-blue-600 rounded-[40px] p-6 text-white shadow-xl relative overflow-hidden group mb-4">
                             <div className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20 group-hover:scale-125 transition-transform">
                                 <img src={mascotZen} alt="Zen Mascot" className="w-full h-auto" />
                             </div>
@@ -549,12 +498,11 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             </div>
                         </div>
                     ) : null}
-                </div>
-            )}
+            </div>
 
             {/* DEBUG_ONLY: Time Simulation Controls */}
             <div className="flex items-center justify-center gap-4 py-2 bg-slate-50/50 rounded-2xl border border-slate-100 mb-6">
-                <button 
+                <button
                     onClick={() => setSimulatedDays(prev => prev - 1)}
                     className="p-2 rounded-full hover:bg-slate-200 transition-colors text-slate-400"
                 >
@@ -566,7 +514,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                         {simulatedDays === 0 ? "Tempo Real" : `${simulatedDays > 0 ? '+' : ''}${simulatedDays} Dias`}
                     </span>
                 </div>
-                <button 
+                <button
                     onClick={() => setSimulatedDays(prev => prev + 1)}
                     className="p-2 rounded-full hover:bg-slate-200 transition-colors text-slate-400"
                 >
@@ -656,9 +604,9 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                 </div>
 
                 {/* Vertical Progress Card */}
-                <div className={`relative overflow-hidden rounded-[40px] p-5 text-white shadow-xl flex flex-col justify-between h-full transition-all duration-500 ${theme === 'fun' ? 'bg-orange-500 shadow-orange-200' : 'bg-gradient-to-br from-brand-500 to-brand-600'}`}>
+                <div className="relative overflow-hidden rounded-[40px] p-5 text-white shadow-xl flex flex-col justify-between h-full transition-all duration-500 bg-orange-500 shadow-orange-200">
                     <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
-                        {theme === 'fun' ? <img src="/mascotachieve.png" alt="Mascot" className="w-32 h-32" /> : <Activity size={140} />}
+                        <img src="/mascotachieve.png" alt="Mascot" className="w-32 h-32" />
                     </div>
 
                     <div className="flex flex-col relative z-10 mb-4">
@@ -669,6 +617,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                     setNewWeight(user.currentWeight.toString());
                                     setShowWeightModal(true);
                                 }}
+                                data-testid="weight-modal-open-button"
                                 className="bg-white/20 hover:bg-white/30 backdrop-blur-md p-2 rounded-xl transition-all active:scale-90"
                             >
                                 <Plus size={16} />
@@ -702,6 +651,16 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                 <div className="h-full bg-blue-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100)}%` }}></div>
                             </div>
                         </div>
+
+                        <div className="flex flex-col gap-2">
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Fibra</span>
+                                <span className="text-xs font-black text-emerald-300 tabular-nums leading-none">{Math.round(dailyData.fiber)} / {user.settings?.fiberGoal || 25}g</span>
+                            </div>
+                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.fiber / (user.settings?.fiberGoal || 25)) * 100)}%` }}></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -715,7 +674,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                     cycleInfo={cycleInfo}
                     injectionSuggestion={injectionSuggestion}
                     handleConfirmInjection={handleConfirmInjection}
-                    setShowDoseHelp={setShowDoseHelp}
                     onShowBodyGuide={() => setShowBodyMap(true)}
                 />
             )}
@@ -723,12 +681,10 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
             {/* Milestones Card */}
             <div className="stagger-3 fade-in bg-white p-5 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100">
                 <div className="flex items-center gap-2 mb-4">
-                    {theme === 'fun' ? (
-                        <div className="w-6 h-6 rounded-lg bg-orange-100 flex items-center justify-center">
-                            <img src="/mascotachieve.png" alt="Mascot" className="w-4 h-4 object-contain" />
-                        </div>
-                    ) : <TrendingUp size={16} className="text-brand-500" />}
-                    <h3 className={`text-xs font-black uppercase tracking-widest ${theme === 'fun' ? 'text-orange-500' : 'text-slate-400'}`}>Marcos de Sucesso</h3>
+                    <div className="w-6 h-6 rounded-lg bg-orange-100 flex items-center justify-center">
+                        <img src="/mascotachieve.png" alt="Mascot" className="w-4 h-4 object-contain" />
+                    </div>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-orange-500">Marcos de Sucesso</h3>
                 </div>
 
                 <div className="space-y-6">
@@ -743,11 +699,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                 className="h-full bg-gradient-to-r from-brand-400 to-brand-500 rounded-full transition-all duration-1000"
                                 style={{ width: `${Math.min(100, ((user.history[0] - user.currentWeight) / (user.history[0] * 0.05)) * 100)}%` }}
                             ></div>
-                            {user.currentWeight <= user.history[0] * 0.95 && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-[8px] font-black text-white uppercase tracking-tighter">ALCANÇADO! 🎉</span>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -762,11 +713,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                 className="h-full bg-gradient-to-r from-brand-500 to-brand-500 rounded-full transition-all duration-1000"
                                 style={{ width: `${Math.min(100, ((user.history[0] - user.currentWeight) / (user.history[0] * 0.10)) * 100)}%` }}
                             ></div>
-                            {user.currentWeight <= user.history[0] * 0.9 && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-[8px] font-black text-white uppercase tracking-tighter">ALCANÇADO! 🎉</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -818,7 +764,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                         Taxa: {stats.weeklyRate} kg/sem
                     </div>
                 </div>
-                <div 
+                <div
                     ref={scrollRef}
                     onMouseDown={handleMouseDown}
                     onMouseLeave={handleMouseLeave}
@@ -829,7 +775,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                 >
                     {/* Água Card - New Clean Minimalist Design */}
                     <div className={`min-w-[280px] flex-1 snap-center p-4 lg:p-5 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col items-center gap-3 transition-colors duration-700 border overflow-hidden relative ${isWaterComplete ? 'bg-blue-500 border-blue-600' : 'bg-white border-slate-100'}`}>
-                        {isWaterComplete && <ConfettiExplosion />}
+                        {showHydratedMascot && <ConfettiExplosion />}
                         <div className="w-full flex justify-between items-center z-10">
                             <div className="flex flex-col">
                                 <span className={`font-outfit font-black text-sm transition-colors duration-700 ${isWaterComplete ? 'text-white' : 'text-slate-800'}`}>ÁGUA</span>
@@ -837,23 +783,19 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             </div>
                         </div>
 
-                        {theme === 'fun' && (
-                            <div 
-                                className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${
-                                    showHydratedMascot 
-                                    ? 'translate-y-[10%] opacity-100' 
+                        <div
+                            className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${showHydratedMascot
+                                    ? 'translate-y-[10%] opacity-100'
                                     : 'translate-y-[100%] opacity-0'
                                 }`}
-                            >
-                                <img 
-                                    src={mascotHydrated} 
-                                    alt="Mascot Hydrated" 
-                                    className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${
-                                        isHydrationZooming ? 'scale-110' : 'scale-100'
-                                    }`} 
-                                />
-                            </div>
-                        )}
+                        >
+                            <img
+                                src={mascotHydrated}
+                                alt="Mascot Hydrated"
+                                className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${isHydrationZooming ? 'scale-110' : 'scale-100'
+                                    }`}
+                            />
+                        </div>
 
                         <div className="w-full relative flex flex-col items-center gap-3 my-2">
                             <div className="relative w-full h-28 flex items-center justify-center z-0">
@@ -869,8 +811,8 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                         </div>
 
                         <div className="flex w-full gap-2 z-30 mt-auto relative">
-                            <button onClick={() => updateIntake('water', -0.2)} className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-blue-600 border-blue-600 text-blue-100 hover:bg-blue-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
-                            <button onClick={() => updateIntake('water', 0.2)} className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-white text-blue-600 hover:bg-blue-50 shadow-md' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>+</button>
+                            <button onClick={() => updateIntake('water', -0.2)} data-testid="water-decrement-button" className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-blue-600 border-blue-600 text-blue-100 hover:bg-blue-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
+                            <button onClick={() => updateIntake('water', 0.2)} data-testid="water-increment-button" className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isWaterComplete ? 'bg-white text-blue-600 hover:bg-blue-50 shadow-md' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>+</button>
                         </div>
                     </div>
 
@@ -880,7 +822,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             className={`p-4 lg:p-5 h-full rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col items-center gap-3 transition-colors duration-700 border overflow-hidden relative ${isProteinComplete ? 'border-transparent' : 'bg-white border-slate-100'}`}
                             style={isProteinComplete ? { backgroundColor: `hsl(20, 90%, 55%)` } : {}}
                         >
-                            {isProteinComplete && <ConfettiExplosion />}
+                            {showProteinMascot && <ConfettiExplosion />}
                             <div className="w-full flex justify-between items-center z-10">
                                 <div className="flex flex-col">
                                     <span className={`font-outfit font-black text-sm transition-colors duration-700 ${isProteinComplete ? 'text-white' : 'text-slate-800'}`}>PROTEÍNA</span>
@@ -888,23 +830,19 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                 </div>
                             </div>
 
-                            {theme === 'fun' && (
-                                <div 
-                                    className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${
-                                        showProteinMascot 
-                                        ? 'translate-y-[10%] opacity-100' 
+                            <div
+                                className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${showProteinMascot
+                                        ? 'translate-y-[10%] opacity-100'
                                         : 'translate-y-[100%] opacity-0'
                                     }`}
-                                >
-                                    <img 
-                                        src="/mascotfeed.png" 
-                                        alt="Mascot Eating" 
-                                        className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${
-                                            isProteinZooming ? 'scale-110' : 'scale-100'
-                                        }`} 
-                                    />
-                                </div>
-                            )}
+                            >
+                                <img
+                                    src="/mascotfeed.png"
+                                    alt="Mascot Eating"
+                                    className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${isProteinZooming ? 'scale-110' : 'scale-100'
+                                        }`}
+                                />
+                            </div>
 
                             <div className="w-full relative flex flex-col items-center gap-3 my-2">
                                 <div className="relative w-full h-28 flex items-center justify-center z-0">
@@ -920,8 +858,8 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             </div>
 
                             <div className="flex w-full gap-2 z-30 mt-auto relative">
-                                <button onClick={() => updateIntake('protein', -5)} className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white/20 border-transparent text-white hover:bg-white/30' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
-                                <button onClick={() => updateIntake('protein', 5)} className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white text-black/80 hover:bg-white/90 shadow-md' : 'bg-orange-500 text-white hover:bg-orange-600'}`}>+</button>
+                                <button onClick={() => updateIntake('protein', -5)} data-testid="protein-decrement-button" className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white/20 border-transparent text-white hover:bg-white/30' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
+                                <button onClick={() => updateIntake('protein', 5)} data-testid="protein-increment-button" className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isProteinComplete ? 'bg-white text-black/80 hover:bg-white/90 shadow-md' : 'bg-orange-500 text-white hover:bg-orange-600'}`}>+</button>
                             </div>
                         </div>
                     </div>
@@ -931,7 +869,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                         <div
                             className={`p-4 lg:p-5 h-full rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col items-center gap-3 transition-colors duration-700 border overflow-hidden relative ${isFiberComplete ? 'bg-emerald-500 border-emerald-600' : 'bg-white border-slate-100'}`}
                         >
-                            {isFiberComplete && <ConfettiExplosion />}
+                            {showFiberMascot && <ConfettiExplosion />}
                             <div className="w-full flex justify-between items-center z-10">
                                 <div className="flex flex-col">
                                     <span className={`font-outfit font-black text-sm transition-colors duration-700 ${isFiberComplete ? 'text-white' : 'text-slate-800'}`}>FIBRA</span>
@@ -939,23 +877,19 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                 </div>
                             </div>
 
-                            {theme === 'fun' && (
-                                <div 
-                                    className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${
-                                        showFiberMascot 
-                                        ? 'translate-y-[10%] opacity-100' 
+                            <div
+                                className={`absolute inset-0 flex items-center justify-center z-10 pointer-events-none transition-all duration-700 ease-out ${showFiberMascot
+                                        ? 'translate-y-[10%] opacity-100'
                                         : 'translate-y-[100%] opacity-0'
                                     }`}
-                                >
-                                    <img 
-                                        src="/mascotfeed.png" 
-                                        alt="Mascot Eating" 
-                                        className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${
-                                            isFiberZooming ? 'scale-110' : 'scale-100'
-                                        }`} 
-                                    />
-                                </div>
-                            )}
+                            >
+                                <img
+                                    src="/mascotfeed.png"
+                                    alt="Mascot Eating"
+                                    className={`h-[150%] w-auto object-contain drop-shadow-2xl transition-transform duration-200 ${isFiberZooming ? 'scale-110' : 'scale-100'
+                                        }`}
+                                />
+                            </div>
 
                             <div className="w-full relative flex flex-col items-center gap-3 my-2">
                                 <div className="relative w-full h-28 flex items-center justify-center z-0">
@@ -971,8 +905,8 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                             </div>
 
                             <div className="flex w-full gap-2 z-30 mt-auto relative">
-                                <button onClick={() => updateIntake('fiber', -5)} className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isFiberComplete ? 'bg-emerald-600 border-emerald-600 text-emerald-100 hover:bg-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
-                                <button onClick={() => updateIntake('fiber', 5)} className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isFiberComplete ? 'bg-white text-emerald-600 hover:bg-emerald-50 shadow-md' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>+</button>
+                                <button onClick={() => updateIntake('fiber', -5)} data-testid="fiber-decrement-button" className={`flex-1 py-3 rounded-2xl border font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isFiberComplete ? 'bg-emerald-600 border-emerald-600 text-emerald-100 hover:bg-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'}`}>−</button>
+                                <button onClick={() => updateIntake('fiber', 5)} data-testid="fiber-increment-button" className={`flex-1 py-3 rounded-2xl font-bold transition-colors duration-700 text-xl leading-none active:scale-90 ${isFiberComplete ? 'bg-white text-emerald-600 hover:bg-emerald-50 shadow-md' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>+</button>
                             </div>
                         </div>
                     </div>
@@ -1027,6 +961,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                 <div className="flex flex-col gap-3">
                     <Button
                         onClick={updateWeight}
+                        data-testid="weight-modal-confirm-button"
                         className="w-full py-5 rounded-[24px] text-lg font-black bg-gradient-to-r from-brand-600 to-brand-500 text-white hover:opacity-90 hover:-translate-y-0.5 transition-all active:translate-y-0"
                     >
                         Confirmar Peso
@@ -1081,19 +1016,12 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                                             selectedSiteId={selectedSiteId || injectionSuggestion.id}
                                             onSelect={setSelectedSiteId}
                                             suggestedSiteId={injectionSuggestion.id}
-                                            lastSiteId={user.doseHistory?.[0]?.siteId}
                                         />
                                     </div>
-
-                                    {user.doseHistory?.[0]?.siteId === (selectedSiteId || injectionSuggestion.id) && (
-                                        <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 animate-headShake">
-                                            <AlertBox type="warning" title="Atenção" message="Você usou este local na última aplicação. Recomenda-se a rotação." />
-                                        </div>
-                                    )}
                                 </>
                             )}
 
-                            <Button onClick={handleConfirmInjection} className="w-full py-4 rounded-[24px] text-lg font-black shadow-xl">
+                            <Button onClick={handleConfirmInjection} data-testid="injection-modal-confirm-button" className="w-full py-4 rounded-[24px] text-lg font-black shadow-xl">
                                 {medication?.route === 'oral' ? "Confirmar Dose" : "Registrar Aplicação"}
                             </Button>
                         </>
@@ -1176,47 +1104,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                 </div>
             </Modal>
 
-            {/* Modal: Perda Acelerada */}
-            <Modal
-                isOpen={showSpeedInfo}
-                onClose={() => setShowSpeedInfo(false)}
-                title="Perda Acelerada"
-            >
-                <div className="space-y-4 text-slate-600">
-                    <p className="text-sm leading-relaxed">
-                        Perder mais de 1.5kg por semana de forma consistente pode indicar que você está perdendo <strong>massa muscular</strong> em vez de apenas gordura.
-                    </p>
-                    <div className="bg-brand-50 p-4 rounded-2xl border border-brand-100">
-                        <h4 className="font-bold text-brand-700 text-xs uppercase mb-2">Como prevenir</h4>
-                        <ul className="text-xs space-y-2 list-disc ml-4">
-                            <li>Aumente a ingestão de proteínas (mínimo 1.2g/kg).</li>
-                            <li>Inicie ou mantenha exercícios de resistência.</li>
-                            <li>Garanta uma hidratação rigorosa (2.5L+).</li>
-                        </ul>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Modal: Platô */}
-            <Modal
-                isOpen={showPlateauInfo}
-                onClose={() => setShowPlateauInfo(false)}
-                title="O que é o Platô?"
-            >
-                <div className="space-y-4 text-slate-600">
-                    <p className="text-sm leading-relaxed">
-                        O platô ocorre quando o corpo se adapta Ã  nova ingestão calórica e estabiliza o peso. É uma parte natural de qualquer jornada de emagrecimento.
-                    </p>
-                    <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
-                        <h4 className="font-bold text-orange-700 text-xs uppercase mb-2">Dicas para quebrar</h4>
-                        <ul className="text-xs space-y-2 list-disc ml-4">
-                            <li>Varie os tipos de exercícios físicos.</li>
-                            <li>Revise seu diário alimentar.</li>
-                            <li>Tire novas medidas.</li>
-                        </ul>
-                    </div>
-                </div>
-            </Modal>
             {/* Fullscreen Photo Overlay */}
             {isFullscreenPhoto && user.photos && user.photos.length > 0 && (
                 <div
@@ -1275,54 +1162,6 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                 </div>
             )}
 
-            {/* Modal: Esqueci minha dose */}
-            <Modal
-                isOpen={showDoseHelp}
-                onClose={() => setShowDoseHelp(false)}
-                title="Esqueci minha dose"
-            >
-                <div className="space-y-6">
-                    <div className="bg-brand-50 p-5 rounded-3xl border border-brand-100">
-                        <h4 className="font-black text-brand-700 text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <Info size={14} />
-                            O que fazer agora?
-                        </h4>
-
-                        {reminder.daysRemaining >= 2 ? (
-                            <div className="space-y-4">
-                                <p className="text-sm text-brand-900 leading-relaxed">
-                                    Como faltam <strong>{reminder.daysRemaining} dias</strong> para sua próxima dose, você deve:
-                                </p>
-                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-brand-200">
-                                    <p className="text-sm font-bold text-brand-600 mb-1">✅ Aplique a dose esquecida agora.</p>
-                                    <p className="text-[10px] text-slate-500">Mantenha seu dia de aplicação original para a próxima semana.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <p className="text-sm text-brand-900 leading-relaxed">
-                                    Como faltam apenas <strong>{reminder.daysRemaining} dias</strong> para sua próxima dose, a recomendação é:
-                                </p>
-                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-brand-200">
-                                    <p className="text-sm font-bold text-orange-600 mb-1">❌ Pule a dose esquecida.</p>
-                                    <p className="text-[10px] text-slate-500">Aguarde o dia normal da sua próxima aplicação para evitar sobrecarga.</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-2xl">
-                        <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                            *Baseado nas orientações gerais de bula para semaglutida e tirzepatida. Em caso de dúvida persistente, consulte seu médico.
-                        </p>
-                    </div>
-
-                    <Button onClick={() => setShowDoseHelp(false)} className="w-full py-4 rounded-2xl text-sm font-black">
-                        Entendi
-                    </Button>
-                </div>
-            </Modal>
-            
             {/* Modal: Guia de Aplicação (Standalone Body Map) */}
             <Modal
                 isOpen={showBodyMap}
@@ -1343,7 +1182,7 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
 
                     {/* Anticipation Warning */}
                     {cycleInfo.daysSinceDose !== null && cycleInfo.daysSinceDose < 6 && (
-                        <AlertBox 
+                        <AlertBox
                             type="warning"
                             title="Intervalo Reduzido"
                             message={`Faltam apenas ${cycleInfo.daysSinceDose} dias desde sua última dose. Aplicar o medicamento antes do intervalo de 6-7 dias pode aumentar os riscos de efeitos colaterais e sobrecarga. Deseja prosseguir mesmo assim?`}
@@ -1354,12 +1193,11 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                         <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">
                             Selecione o local de hoje
                         </p>
-                        
+
                         <BodySelector
                             selectedSiteId={selectedSiteId || injectionSuggestion.id}
                             onSelect={setSelectedSiteId}
                             suggestedSiteId={injectionSuggestion.id}
-                            lastSiteId={user.doseHistory?.[0]?.siteId}
                         />
                     </div>
 
@@ -1370,15 +1208,16 @@ const Dashboard = ({ user, setUser, setActiveTab, theme }) => {
                     </div>
 
                     <div className="flex items-stretch gap-3 pt-4">
-                        <button 
+                        <button
                             onClick={() => setShowBodyMap(false)}
                             className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-[24px] text-xs font-black uppercase tracking-widest border-b-4 border-slate-200 active:translate-y-1 active:border-b-0 transition-all"
                         >
                             Sair
                         </button>
 
-                        <button 
-                            onClick={handleConfirmInjection} 
+                        <button
+                            onClick={handleConfirmInjection}
+                            data-testid="body-map-confirm-button"
                             className="flex-[2] bg-brand-500 text-white py-4 rounded-[24px] text-xs font-black uppercase tracking-widest border-b-4 border-brand-700 active:translate-y-1 active:border-b-0 transition-all"
                         >
                             Confirmar

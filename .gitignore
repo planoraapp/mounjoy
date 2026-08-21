@@ -2,6 +2,11 @@ node_modules
 dist
 .DS_Store
 .env.local
+.env.test.local
 .expo
 .vscode
 *.log
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

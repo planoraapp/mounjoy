@@ -54,12 +54,14 @@ const FunLandingPage = ({ onStart, onLogin, onToggleTheme }) => {
                     </button>
                     <button
                         onClick={onLogin}
+                        data-testid="landing-login-button"
                         className="text-slate-600 font-bold text-sm hover:text-orange-500 transition-colors hidden md:block uppercase tracking-widest text-[10px]"
                     >
                         Entrar
                     </button>
                     <button
                         onClick={onStart}
+                        data-testid="landing-start-button"
                         className="px-8 py-3 rounded-full bg-[#093466] text-white font-black text-xs shadow-xl hover:shadow-2xl transition-all active:scale-95 uppercase tracking-widest"
                     >
                         Começar

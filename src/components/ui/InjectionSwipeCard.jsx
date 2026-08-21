@@ -1,15 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, AnimatePresence, animate } from 'framer-motion';
-import { Info, MapPin, CheckCircle2 } from 'lucide-react';
+import { MapPin, CheckCircle2 } from 'lucide-react';
 
-const InjectionSwipeCard = ({ 
-    medication, 
-    user, 
-    timeRemaining, 
-    cycleInfo, 
-    injectionSuggestion, 
+const InjectionSwipeCard = ({
+    medication,
+    user,
+    timeRemaining,
+    cycleInfo,
+    injectionSuggestion,
     handleConfirmInjection,
-    setShowDoseHelp,
     onShowBodyGuide
 }) => {
     const [isApplied, setIsApplied] = useState(false);
@@ -67,6 +66,7 @@ const InjectionSwipeCard = ({
                             key="apply-btn"
                             whileTap={{ y: 4 }}
                             onClick={onShowBodyGuide}
+                            data-testid="injection-open-button"
                             className="group relative flex flex-col items-center outline-none select-none transition-opacity duration-300"
                         >
                             {/* Physical Depth Base */}
@@ -173,18 +173,6 @@ const InjectionSwipeCard = ({
                         </div>
                     </div>
                 )}
-
-                <button 
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDoseHelp(true);
-                  }}
-                  className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-brand-500 transition-colors flex items-center justify-center gap-1.5 mt-1"
-                >
-                    <Info size={12} />
-                    Esqueci minha dose
-                </button>
             </motion.div>
         </div>
     );

@@ -82,7 +82,7 @@ const Onboarding = ({ onComplete, theme }) => {
         // Step 1: Name Only
         <div className="flex flex-col h-full pt-10 fade-in">
             <h2 className="text-2xl font-bold text-slate-800 mb-6">Sobre você</h2>
-            <Input label="Como podemos te chamar?" placeholder="Seu nome" value={data.name} onChange={(e) => handleChange('name', e.target.value)} />
+            <Input label="Como podemos te chamar?" placeholder="Seu nome" data-testid="onboarding-name-input" value={data.name} onChange={(e) => handleChange('name', e.target.value)} />
         </div>,
 
         // Step 2: Current Physical Data (Sliders)
@@ -96,6 +96,7 @@ const Onboarding = ({ onComplete, theme }) => {
                 max={250}
                 step={0.1}
                 suffix="kg"
+                testId="onboarding-weight-input"
             />
             <Slider
                 label="Altura"
@@ -105,6 +106,7 @@ const Onboarding = ({ onComplete, theme }) => {
                 max={2.3}
                 step={0.01}
                 suffix="m"
+                testId="onboarding-height-input"
             />
         </div>,
 
@@ -120,6 +122,7 @@ const Onboarding = ({ onComplete, theme }) => {
                     max={200}
                     step={0.1}
                     suffix="kg"
+                    testId="onboarding-goal-weight-input"
                 />
             </div>
             {theme === 'fun' && (
@@ -203,6 +206,7 @@ const Onboarding = ({ onComplete, theme }) => {
                     return (
                         <div
                             key={substance}
+                            data-testid={`onboarding-substance-${substance}`}
                             onClick={() => handleSubstanceClick(substance)}
                             className={`p-4 rounded-[32px] transition-all duration-500 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden h-fit min-h-[100px] cursor-pointer ${isFocused
                                 ? 'bg-brand-50 border-brand-600 border-2 ring-2 ring-brand-500/5 scale-105 my-4 shadow-xl z-30 w-full max-w-[210px] mx-auto pointer-events-auto'
@@ -230,6 +234,7 @@ const Onboarding = ({ onComplete, theme }) => {
                                         return (
                                             <button
                                                 key={med.id}
+                                                data-testid={`onboarding-medication-${med.id}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleChange('medicationId', med.id);
@@ -269,6 +274,7 @@ const Onboarding = ({ onComplete, theme }) => {
                         {MOCK_MEDICATIONS.find(m => m.id === data.medicationId).doses.map((dose) => (
                             <button
                                 key={dose}
+                                data-testid={`onboarding-dose-${dose}`}
                                 onClick={() => handleChange('currentDose', dose)}
                                 className={`py-2 px-1 rounded-xl text-xs font-bold transition-all ${data.currentDose === dose ? 'bg-brand-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-100'
                                     }`}
@@ -321,7 +327,7 @@ const Onboarding = ({ onComplete, theme }) => {
     ];
 
     return (
-        <div className="h-screen bg-slate-50 flex flex-col font-outfit overflow-hidden">
+        <div data-testid="onboarding-screen" data-step={step} className="h-screen bg-slate-50 flex flex-col font-outfit overflow-hidden">
             <div className="w-full max-w-md mx-auto h-full flex flex-col px-6 pt-8 relative">
                 {/* Header Navigation (Fixed at Top) */}
                 <div className="flex items-center gap-4 mb-6 shrink-0">
@@ -369,6 +375,7 @@ const Onboarding = ({ onComplete, theme }) => {
                     <div className="flex gap-3">
                         <Button
                             onClick={step === steps.length - 1 ? () => onComplete(data) : nextStep}
+                            data-testid="onboarding-next-button"
                             className={`flex-1 shadow-lg transition-all active:scale-95 ${isNextDisabled() ? 'grayscale opacity-50' : (theme === 'fun' ? 'bg-orange-500 shadow-orange-500/20' : 'bg-brand-600 shadow-brand-500/20')}`}
                             disabled={isNextDisabled()}
                         >
