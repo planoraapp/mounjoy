@@ -1,20 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const getEnv = (key) => {
-    // Vite/web: import.meta.env is Vite's native env injection mechanism.
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-        const value = import.meta.env[`VITE_${key}`];
-        if (value) return value;
-    }
-    // Expo/native: process.env is injected by Metro at build time.
-    if (typeof process !== 'undefined' && process.env) {
-        return process.env[`EXPO_PUBLIC_${key}`] || '';
-    }
-    return '';
-};
-
-const supabaseUrl = getEnv('SUPABASE_URL') || 'https://placeholder-project.supabase.co';
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY') || 'placeholder-anon-key';
+// Expo/Metro-only variant (used for native iOS/Android and `expo start
+// --web`). Static process.env.EXPO_PUBLIC_* access, since babel-preset-expo
+// only replaces static reads, not computed/bracket access. Do not use
+// import.meta here — Metro/Hermes can't parse it (Script goal, not Module
+// goal). The Vite/web-DOM app uses src/supabaseClient.vite.js instead,
+// aliased in vite.config.js, because it needs import.meta.env.
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 if (supabaseUrl.includes('placeholder-project')) {
     console.warn("Supabase credentials missing. Check EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY. App running in offline/placeholder mode.");

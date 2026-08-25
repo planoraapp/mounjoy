@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "mounjoy-expo-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "expo-web"],
+      "port": 8081
     }
   ]
 }
