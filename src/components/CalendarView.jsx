@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Scale, BookOpen, Droplet, Activity, X, Plus, Camera, TrendingUp, Maximize2, Share2, Download, ZoomIn, ZoomOut } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Image as ImageIcon, Scale, BookOpen, Droplet, Activity, X, Plus, Camera, TrendingUp, Maximize2, Share2, Download, ZoomIn, ZoomOut, Columns2, Rows2 } from 'lucide-react';
 import { Modal } from './ui/BaseComponents';
 
 const CalendarView = ({ user, setUser, setActiveTab }) => {
@@ -18,6 +18,7 @@ const CalendarView = ({ user, setUser, setActiveTab }) => {
     // --- Visual Comparator State ---
     const [selectedDates, setSelectedDates] = useState([]);
     const [showFullComparison, setShowFullComparison] = useState(false);
+    const [twoPhotosLayout, setTwoPhotosLayout] = useState('side-by-side'); // 'side-by-side' or 'stacked'
     const [isExporting, setIsExporting] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [exportPreview, setExportPreview] = useState(null);
@@ -924,17 +925,28 @@ const CalendarView = ({ user, setUser, setActiveTab }) => {
                             <p className="text-[8px] font-black text-brand-400 uppercase tracking-widest">Ajuste & Compartilhe</p>
                         </div>
 
-                        <button
-                            onClick={handleExportStory}
-                            disabled={isExporting}
-                            className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center text-white border border-white/10 ${isExporting ? 'animate-pulse' : ''}`}
-                        >
-                            {isExporting ? <Activity className="animate-spin" size={18} /> : <Share2 size={18} />}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {selectedDates.length === 2 && (
+                                <button
+                                    onClick={() => setTwoPhotosLayout(prev => prev === 'side-by-side' ? 'stacked' : 'side-by-side')}
+                                    className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center text-white border border-white/10"
+                                    title="Alternar layout"
+                                >
+                                    {twoPhotosLayout === 'side-by-side' ? <Rows2 size={18} /> : <Columns2 size={18} />}
+                                </button>
+                            )}
+                            <button
+                                onClick={handleExportStory}
+                                disabled={isExporting}
+                                className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center text-white border border-white/10 ${isExporting ? 'animate-pulse' : ''}`}
+                            >
+                                {isExporting ? <Activity className="animate-spin" size={18} /> : <Share2 size={18} />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="w-full h-full relative overflow-hidden">
-                        <div className={`grid w-full h-full gap-1 bg-slate-900 ${selectedDates.length === 2 ? 'grid-cols-2' : selectedDates.length === 3 ? 'grid-cols-1 grid-rows-3' : 'grid-cols-2 grid-rows-2'}`}>
+                        <div className={`grid w-full h-full gap-1 bg-slate-900 ${selectedDates.length === 2 ? (twoPhotosLayout === 'stacked' ? 'grid-cols-1 grid-rows-2' : 'grid-cols-2') : selectedDates.length === 3 ? 'grid-cols-1 grid-rows-3' : 'grid-cols-2 grid-rows-2'}`}>
                             {selectedDates.slice().sort((a,b) => new Date(a) - new Date(b)).map((dateStr, idx) => {
                                 const log = baseWeightLogs.find(l => l.date === dateStr);
                                 const photo = findPhotoForDate(dateStr);
