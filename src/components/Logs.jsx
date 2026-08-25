@@ -52,6 +52,7 @@ const Logs = ({ user, setUser }) => {
         setTrigger('');
         setSelectedSymptoms([]);
         setFoodNoise(3);
+        setShowTriggerField(false);
         setIsSaving(false);
     };
 
@@ -195,6 +196,12 @@ const Logs = ({ user, setUser }) => {
                             <p className="text-xs"><strong>Alto:</strong> Pensamentos constantes sobre a próxima refeição ou snacks.</p>
                         </div>
                     </div>
+                    <Button
+                        onClick={() => setShowFoodNoiseInfo(false)}
+                        className="w-full !mt-2"
+                    >
+                        Entendi
+                    </Button>
                 </div>
             </Modal>
         </div>
