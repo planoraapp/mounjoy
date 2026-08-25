@@ -1,12 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
 const getEnv = (key) => {
-    // Rely on process.env which is injected by Vite's define plugin on web and by Metro/Expo on mobile
+    // Vite/web: import.meta.env is Vite's native env injection mechanism.
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+        const value = import.meta.env[`VITE_${key}`];
+        if (value) return value;
+    }
+    // Expo/native: process.env is injected by Metro at build time.
     if (typeof process !== 'undefined' && process.env) {
-        return process.env[`EXPO_PUBLIC_${key}`] || 
-               process.env[`VITE_${key}`] || 
-               process.env[key] || 
-               '';
+        return process.env[`EXPO_PUBLIC_${key}`] || '';
     }
     return '';
 };
