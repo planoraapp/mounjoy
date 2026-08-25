@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Platform, PanResponder } from 'react-native';
 import { Button, Modal } from './NativeUI';
-import { Info, AlertCircle } from 'lucide-react-native';
+import { Info, AlertCircle, UtensilsCrossed } from 'lucide-react-native';
+import { userService } from '../../services/userService';
 
 const FoodNoiseSlider = ({ value, onChange }) => {
     const percentage = Math.max(0, Math.min(100, (value / 10) * 100));
@@ -109,6 +110,16 @@ const NativeLogs = ({ user, setUser }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [showFoodNoiseInfo, setShowFoodNoiseInfo] = useState(false);
     const [showTriggerField, setShowTriggerField] = useState(false);
+    const [mealLogs, setMealLogs] = useState([]);
+    const [loadingMeals, setLoadingMeals] = useState(true);
+
+    useEffect(() => {
+        if (!user?.uid) { setLoadingMeals(false); return; }
+        userService.getMealLogs(user.uid).then((logs) => {
+            setMealLogs(logs);
+            setLoadingMeals(false);
+        });
+    }, [user?.uid]);
 
     const symptoms = [
         { id: 'nausea', emoji: '🤢', label: 'Náusea' },
@@ -168,6 +179,38 @@ const NativeLogs = ({ user, setUser }) => {
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 <Text style={styles.title}>Diário de Hoje</Text>
+
+                {/* Meal History Section */}
+                <View style={styles.card}>
+                    <Text style={[styles.cardLabel, styles.cardLabelWithMargin]}>Refeições Registradas</Text>
+                    {loadingMeals ? (
+                        <Text style={styles.emptyMealsText}>Carregando...</Text>
+                    ) : mealLogs.length === 0 ? (
+                        <Text style={styles.emptyMealsText}>Nenhuma refeição escaneada ainda. Use o botão "Escanear Refeição" na Home.</Text>
+                    ) : (
+                        <View style={styles.mealList}>
+                            {mealLogs.map((meal) => (
+                                <View key={meal.id} style={styles.mealRow}>
+                                    <View style={styles.mealIconWrap}>
+                                        <UtensilsCrossed size={16} color="#EA580C" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.mealDate}>
+                                            {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(meal.logged_at))}
+                                        </Text>
+                                        <Text style={styles.mealItemNames} numberOfLines={1}>
+                                            {(meal.items || []).map((i) => i.name).join(', ') || 'Sem itens'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.mealMacros}>
+                                        <Text style={styles.mealCalories}>{Math.round(meal.total_calories)} kcal</Text>
+                                        <Text style={styles.mealMacroText}>P {meal.total_protein.toFixed(0)}g · C {meal.total_carbs.toFixed(0)}g · G {meal.total_fat.toFixed(0)}g</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
 
                 {/* Symptoms Section */}
                 <View style={styles.card}>
@@ -305,6 +348,16 @@ const styles = StyleSheet.create({
     emoji: { fontSize: 22, marginBottom: 2 },
     symptomLabel: { fontSize: 8, fontFamily: 'Outfit_900Black', color: '#94A3B8', textTransform: 'uppercase', textAlign: 'center' },
     symptomLabelActive: { color: '#EA580C' },
+
+    emptyMealsText: { fontSize: 12, fontFamily: 'Outfit_600SemiBold', color: '#94A3B8', lineHeight: 18 },
+    mealList: { gap: 12 },
+    mealRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    mealIconWrap: { width: 36, height: 36, borderRadius: 14, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center' },
+    mealDate: { fontSize: 11, fontFamily: 'Outfit_700Bold', color: '#0F172A' },
+    mealItemNames: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', color: '#94A3B8', marginTop: 2 },
+    mealMacros: { alignItems: 'flex-end' },
+    mealCalories: { fontSize: 13, fontFamily: 'Outfit_900Black', color: '#EA580C' },
+    mealMacroText: { fontSize: 9, fontFamily: 'Outfit_600SemiBold', color: '#94A3B8', marginTop: 2 },
 
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },

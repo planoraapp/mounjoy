@@ -42,6 +42,7 @@ export const userService = {
                 protein_goal: userData.settings?.proteinGoal || 100,
                 water_goal: userData.settings?.waterGoal || 2.5,
                 fiber_goal: userData.settings?.fiberGoal || 25,
+                unit_system: userData.settings?.unitSystem || 'metric',
                 updated_at: new Date().toISOString()
             });
 
@@ -148,7 +149,8 @@ export const userService = {
             if (data.settings?.proteinGoal !== undefined) updatePayload.protein_goal = data.settings.proteinGoal;
             if (data.settings?.waterGoal !== undefined) updatePayload.water_goal = data.settings.waterGoal;
             if (data.settings?.fiberGoal !== undefined) updatePayload.fiber_goal = data.settings.fiberGoal;
-            
+            if (data.settings?.unitSystem !== undefined) updatePayload.unit_system = data.settings.unitSystem;
+
             updatePayload.updated_at = new Date().toISOString();
 
             const { error } = await supabase
@@ -240,6 +242,7 @@ export const userService = {
                         proteinGoal: parseFloat(profile.protein_goal) || 100,
                         waterGoal: parseFloat(profile.water_goal) || 2.5,
                         fiberGoal: parseFloat(profile.fiber_goal) || 25,
+                        unitSystem: profile.unit_system || 'metric',
                         remindersEnabled: true,
                         reminderTime: '09:00'
                     }
@@ -285,5 +288,102 @@ export const userService = {
             console.error("Error deleting user account:", error);
             throw error;
         }
-    }
+    },
+
+    /**
+     * Sends a base64 meal photo to the analyze-meal-photo Edge Function.
+     * The image itself is never persisted — only the extracted item list
+     * comes back. See mobile_documentation.md section 7.
+     */
+    // ⚠️ TEMPORARY (2026-08-25): no longer requires a session, to make guest
+    // mode testable without wiring up anonymous sign-in yet — mirrors the
+    // Edge Function's own temporary auth-optional state. See
+    // mobile_documentation.md section 7.9 for what to restore before a real
+    // release.
+    analyzeMealPhoto: async (imageBase64, mimeType = 'image/jpeg', totalWeightHintGrams = null) => {
+        const { data, error } = await supabase.functions.invoke('analyze-meal-photo', {
+            body: { imageBase64, mimeType, totalWeightHintGrams },
+        });
+
+        if (error) {
+            // FunctionsHttpError carries the actual response on `.context` —
+            // surface the server's friendly message (rate limit, payload too
+            // large, etc.) instead of a generic "Edge Function returned a
+            // non-2xx status code".
+            try {
+                const body = await error.context?.json?.();
+                if (body?.error) throw new Error(body.error);
+            } catch (parseError) {
+                if (parseError?.message && parseError.message !== error.message) throw parseError;
+            }
+            throw error;
+        }
+        return data.items || [];
+    },
+
+    /**
+     * Best-effort lookup of a food item's macros per 100g by name. Returns
+     * null if nothing matches — food_items starts empty until seeded (see
+     * mobile_documentation.md 7.8), so callers must handle a null result.
+     */
+    findFoodItemByName: async (name) => {
+        const { data, error } = await supabase
+            .from('food_items')
+            .select('*')
+            .ilike('name_search', `%${name.toLowerCase().trim()}%`)
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error looking up food item:', error);
+            return null;
+        }
+        return data;
+    },
+
+    /** Manual search for the "add item" flow (returns up to 10 matches). */
+    searchFoodItems: async (query) => {
+        if (!query || query.trim().length < 2) return [];
+        const { data, error } = await supabase
+            .from('food_items')
+            .select('*')
+            .ilike('name_search', `%${query.toLowerCase().trim()}%`)
+            .limit(10);
+
+        if (error) {
+            console.error('Error searching food items:', error);
+            return [];
+        }
+        return data || [];
+    },
+
+    /** Persists a confirmed meal log (own table, independent of profiles). */
+    saveMealLog: async (uid, meal) => {
+        const { error } = await supabase.from('meal_logs').insert({
+            user_id: uid,
+            items: meal.items,
+            total_calories: meal.totalCalories,
+            total_protein: meal.totalProtein,
+            total_carbs: meal.totalCarbs,
+            total_fat: meal.totalFat,
+        });
+
+        if (error) throw error;
+    },
+
+    /** Meal history for the "Refeições Registradas" section — most recent first. */
+    getMealLogs: async (uid, limit = 30) => {
+        const { data, error } = await supabase
+            .from('meal_logs')
+            .select('*')
+            .eq('user_id', uid)
+            .order('logged_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('Error fetching meal logs:', error);
+            return [];
+        }
+        return data || [];
+    },
 };

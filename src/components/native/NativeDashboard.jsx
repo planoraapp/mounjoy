@@ -940,6 +940,21 @@ const NativeDashboard = ({ user, setUser, setActiveTab }) => {
                     )}
                 </View>
 
+                {/* Meal photo analysis entry point */}
+                <TouchableOpacity
+                    onPress={() => setActiveTab && setActiveTab('mealScan')}
+                    style={styles.mealScanBtn}
+                    activeOpacity={0.85}
+                >
+                    <View style={styles.mealScanIcon}>
+                        <Camera size={20} color="#EA580C" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.mealScanTitle}>Escanear Refeição</Text>
+                        <Text style={styles.mealScanSubtitle}>Tire uma foto e identifique os alimentos</Text>
+                    </View>
+                </TouchableOpacity>
+
                 {/* Daily wellness Snap Carousel */}
                 <View style={styles.carouselHeader}>
                     <Text style={styles.carouselTitle}>Meta do Dia</Text>
@@ -1631,6 +1646,26 @@ const styles = StyleSheet.create({
     cycleTipText: { fontSize: 10, fontFamily: 'Outfit_700Bold', color: '#EA580C', lineHeight: 13 },
 
     // Carousel Section
+    mealScanBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
+    },
+    mealScanIcon: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center' },
+    mealScanTitle: { fontSize: 14, fontFamily: 'Outfit_700Bold', color: '#0F172A' },
+    mealScanSubtitle: { fontSize: 11, fontFamily: 'Outfit_600SemiBold', color: '#94A3B8', marginTop: 2 },
+
     carouselHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'end', marginBottom: 16 },
     carouselTitle: { fontSize: 18, fontFamily: 'Outfit_700Bold', color: '#0F172A' },
     rateBadge: { backgroundColor: '#FFF7ED', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8 },

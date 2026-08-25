@@ -14,6 +14,7 @@ import NativeCalendar from './src/components/native/NativeCalendar';
 import NativeEvolution from './src/components/native/NativeEvolution';
 import NativeProfile from './src/components/native/NativeProfile';
 import NativeLogs from './src/components/native/NativeLogs';
+import NativeMealScan from './src/components/native/NativeMealScan';
 
 const NativeMain = () => {
     const { currentUser, userData, logout } = useAuth();
@@ -49,7 +50,7 @@ const NativeMain = () => {
             measurements: [{ date: now, weight: parseFloat(data.startWeight) }],
             sideEffectsLogs: [],
             dailyIntakeHistory: {},
-            settings: { proteinGoal: 100, waterGoal: 2.5, fiberGoal: 25 }
+            settings: { proteinGoal: 100, waterGoal: 2.5, fiberGoal: 25, unitSystem: data.unitSystem || 'metric' }
         };
         setGuestUser(newUser);
         setView('home');
@@ -83,6 +84,7 @@ const NativeMain = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'home': return <NativeDashboard user={user} setUser={setUser} setActiveTab={setActiveTab} />;
+            case 'mealScan': return <NativeMealScan user={user} setUser={setUser} onClose={() => setActiveTab('home')} />;
             case 'logs': return <NativeLogs user={user} setUser={setUser} />;
             case 'calendar': return <NativeCalendar user={user} setUser={setUser} />;
             case 'stats': return <NativeEvolution user={user} />;
@@ -95,6 +97,7 @@ const NativeMain = () => {
         <SafeAreaView style={styles.container}>
             {renderContent()}
 
+            {activeTab !== 'mealScan' && (
             <View style={styles.tabBar}>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('home')}>
                     <Home color={activeTab === 'home' ? '#EA580C' : '#94A3B8'} size={22} />
@@ -117,6 +120,7 @@ const NativeMain = () => {
                     <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>Perfil</Text>
                 </TouchableOpacity>
             </View>
+            )}
         </SafeAreaView>
     );
 };

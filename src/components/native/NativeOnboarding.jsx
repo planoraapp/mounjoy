@@ -40,10 +40,21 @@ const AnimatedPreviewCard = ({ children, style }) => {
     );
 };
 
+// Canonical storage stays metric (kg, m) regardless of the user's chosen
+// display unit, so the rest of the app (dashboards, charts, backend) never
+// needs to know which unit the user picked at onboarding.
+const KG_PER_LB = 0.453592;
+const M_PER_IN = 0.0254;
+const kgToLb = (kg) => kg / KG_PER_LB;
+const lbToKg = (lb) => lb * KG_PER_LB;
+const mToIn = (m) => m / M_PER_IN;
+const inToM = (inches) => inches * M_PER_IN;
+
 const NativeOnboarding = ({ onComplete }) => {
     const [step, setStep] = useState(0);
     const [data, setData] = useState({
         name: '',
+        unitSystem: 'metric', // 'metric' | 'imperial' — see mobile_documentation.md 7.6
         height: '1.70',
         startWeight: '80.0',
         goalWeight: '70.0',
@@ -51,6 +62,7 @@ const NativeOnboarding = ({ onComplete }) => {
         currentDose: '',
         injectionDay: ''
     });
+    const isImperial = data.unitSystem === 'imperial';
 
     const [filterAdmin, setFilterAdmin] = useState('all');
     const [filterFocus, setFilterFocus] = useState('all');
@@ -76,8 +88,8 @@ const NativeOnboarding = ({ onComplete }) => {
 
     const isNextDisabled = () => {
         if (step === 1) return !data.name;
-        if (step === 4) return !data.medicationId;
-        if (step === 5) return !data.currentDose || !data.injectionDay;
+        if (step === 5) return !data.medicationId;
+        if (step === 6) return !data.currentDose || !data.injectionDay;
         return false;
     };
 
@@ -120,40 +132,61 @@ const NativeOnboarding = ({ onComplete }) => {
             />
         </View>,
 
-        // Step 2: Physical Data
+        // Step 2: Units
+        <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Sistema de Medidas</Text>
+            <Text style={styles.subtitle}>Como você prefere ver seu peso e altura?</Text>
+            <View style={styles.unitGrid}>
+                {[
+                    { id: 'metric', label: 'Métrico', hint: 'kg · cm' },
+                    { id: 'imperial', label: 'Imperial', hint: 'lb · in' },
+                ].map((opt) => (
+                    <TouchableOpacity
+                        key={opt.id}
+                        onPress={() => { triggerLayoutAnimation(); handleChange('unitSystem', opt.id); }}
+                        style={[styles.unitCard, data.unitSystem === opt.id && styles.unitCardActive]}
+                    >
+                        <Text style={[styles.unitCardLabel, data.unitSystem === opt.id && styles.unitCardLabelActive]}>{opt.label}</Text>
+                        <Text style={[styles.unitCardHint, data.unitSystem === opt.id && styles.unitCardHintActive]}>{opt.hint}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </View>,
+
+        // Step 3: Physical Data
         <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Seus Dados</Text>
             <Slider
                 label="Peso Atual"
-                value={data.startWeight}
-                onChange={(v) => handleChange('startWeight', v)}
-                min={40}
-                max={250}
-                step={0.1}
-                suffix="kg"
+                value={isImperial ? kgToLb(parseFloat(data.startWeight)).toFixed(1) : data.startWeight}
+                onChange={(v) => handleChange('startWeight', (isImperial ? lbToKg(parseFloat(v)) : parseFloat(v)).toFixed(1))}
+                min={isImperial ? 88 : 40}
+                max={isImperial ? 550 : 250}
+                step={isImperial ? 0.5 : 0.1}
+                suffix={isImperial ? 'lb' : 'kg'}
             />
             <Slider
                 label="Altura"
-                value={data.height}
-                onChange={(v) => handleChange('height', v)}
-                min={1.0}
-                max={2.3}
-                step={0.01}
-                suffix="m"
+                value={isImperial ? mToIn(parseFloat(data.height)).toFixed(1) : data.height}
+                onChange={(v) => handleChange('height', (isImperial ? inToM(parseFloat(v)) : parseFloat(v)).toFixed(2))}
+                min={isImperial ? 39 : 1.0}
+                max={isImperial ? 91 : 2.3}
+                step={isImperial ? 0.5 : 0.01}
+                suffix={isImperial ? 'in' : 'm'}
             />
         </View>,
 
-        // Step 3: Goal
+        // Step 4: Goal
         <View style={styles.stepContainer}>
             <Text style={styles.stepTitle}>Sua Meta</Text>
             <Slider
                 label="Meta de Peso"
-                value={data.goalWeight}
-                onChange={(v) => handleChange('goalWeight', v)}
-                min={40}
-                max={200}
-                step={0.1}
-                suffix="kg"
+                value={isImperial ? kgToLb(parseFloat(data.goalWeight)).toFixed(1) : data.goalWeight}
+                onChange={(v) => handleChange('goalWeight', (isImperial ? lbToKg(parseFloat(v)) : parseFloat(v)).toFixed(1))}
+                min={isImperial ? 88 : 40}
+                max={isImperial ? 440 : 200}
+                step={isImperial ? 0.5 : 0.1}
+                suffix={isImperial ? 'lb' : 'kg'}
             />
             <Image source={mascotWeightImg} style={styles.weightMascot} resizeMode="contain" />
         </View>,
@@ -347,7 +380,7 @@ const NativeOnboarding = ({ onComplete }) => {
                 </View>
 
                 <View style={styles.footer}>
-                    {(step === 4 && !!data.medicationId && !!selectedMed) ? (
+                    {(step === 5 && !!data.medicationId && !!selectedMed) ? (
                         <View style={styles.selectionPreview}>
                             <Text style={styles.selectionPreviewLabel}>Selecionado</Text>
                             <View style={styles.selectionPreviewRow}>
@@ -391,6 +424,24 @@ const styles = StyleSheet.create({
 
     // Common Step Headers
     stepTitle: { fontSize: 24, fontFamily: 'Outfit_700Bold', color: '#0F172A', marginBottom: 20 },
+
+    // Step 2: Units
+    unitGrid: { flexDirection: 'row', gap: 12, marginTop: 24 },
+    unitCard: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        borderWidth: 2,
+        borderColor: '#F1F5F9',
+        paddingVertical: 24,
+        alignItems: 'center',
+        gap: 4,
+    },
+    unitCardActive: { borderColor: '#EA580C', backgroundColor: '#FFF7ED' },
+    unitCardLabel: { fontSize: 16, fontFamily: 'Outfit_700Bold', color: '#0F172A' },
+    unitCardLabelActive: { color: '#EA580C' },
+    unitCardHint: { fontSize: 12, fontFamily: 'Outfit_600SemiBold', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
+    unitCardHintActive: { color: '#EA580C' },
 
     // Step 3: Goal
     weightMascot: { width: 180, height: 180, alignSelf: 'center', marginTop: 24 },
