@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { Settings, Bell, LogOut, Check, TrendingUp, Scale, Camera, ChevronRight } from 'lucide-react';
+import { Settings, Bell, LogOut, TrendingUp, Scale, Camera } from 'lucide-react';
 import { Modal, Button } from './ui/BaseComponents';
-import BodySelector from './ui/BodySelector';
-import { suggestNextInjection, getSiteById } from '../services/InjectionService';
 import { userService } from '../services/userService';
 import { MOCK_MEDICATIONS } from '../constants/medications';
 
 const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
     const [showProtocolModal, setShowProtocolModal] = useState(false);
-    const [showDoseModal, setShowDoseModal] = useState(false);
     const [showMeasureModal, setShowMeasureModal] = useState(false);
     const [showReminderModal, setShowReminderModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -18,7 +15,6 @@ const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
     const [selectedMed, setSelectedMed] = useState(user.medicationId);
     const [selectedDose, setSelectedDose] = useState(user.currentDose);
     const [routeFilter, setRouteFilter] = useState('all');
-    const [selectedSiteId, setSelectedSiteId] = useState(null);
     const [measures, setMeasures] = useState({ waist: '', hip: '' });
 
     const [reminderSettings, setReminderSettings] = useState({
@@ -30,10 +26,6 @@ const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
         if (routeFilter === 'all') return MOCK_MEDICATIONS;
         return MOCK_MEDICATIONS.filter(m => m.route === routeFilter);
     }, [routeFilter]);
-
-    const injectionSuggestion = React.useMemo(() => {
-        return suggestNextInjection(user.doseHistory || []);
-    }, [user.doseHistory]);
 
     const handleUpdateProtocol = () => {
         const updatedUser = {
@@ -61,27 +53,6 @@ const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
         };
         setUser(updatedUser);
         setShowMeasureModal(false);
-    };
-
-    const handleAddDoseRecord = () => {
-        const siteId = selectedSiteId || injectionSuggestion.id;
-        const site = getSiteById(siteId);
-
-        const newRecord = {
-            date: new Date().toISOString(),
-            dose: user.currentDose,
-            medication: user.medicationId,
-            siteId: siteId,
-            area: site?.area || 'N/A',
-            side: site?.side || 'N/A'
-        };
-        const updatedUser = {
-            ...user,
-            doseHistory: [newRecord, ...(user.doseHistory || [])]
-        };
-        setUser(updatedUser);
-        setShowDoseModal(false);
-        setSelectedSiteId(null);
     };
 
     const handleSaveReminders = () => {
@@ -192,26 +163,6 @@ const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
             </div>
 
             <div className="space-y-6 pb-24">
-                {/* Primary Action */}
-                <button
-                    onClick={() => setShowDoseModal(true)}
-                    className="w-full bg-white border border-slate-100 p-5 rounded-[32px] shadow-sm flex items-center justify-between group hover:border-brand-200 hover:shadow-md transition-all relative overflow-hidden"
-                >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand-50/50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
-                    <div className="flex items-center gap-3 relative z-10">
-                        <div className="w-12 h-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand shadow-sm">
-                            <Check size={24} className="group-hover:scale-110 transition-transform" />
-                        </div>
-                        <div className="text-left">
-                            <span className="block font-black text-slate-800 text-base tracking-tight leading-none mb-1">Registrar Dose</span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Marcar aplicação de hoje</span>
-                        </div>
-                    </div>
-                    <span className="text-slate-200 group-hover:translate-x-1 group-hover:text-brand transition-all relative z-10">
-                        <ChevronRight size={20} />
-                    </span>
-                </button>
-
                 {/* Health Goals Section */}
                 <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -433,28 +384,6 @@ const Profile = ({ user, onReset, setUser, theme, setTheme }) => {
                     </div>
 
                     <Button onClick={handleSaveReminders} className="w-full">Salvar Configurações</Button>
-                </div>
-            </Modal >
-
-            {/* Modal: Registrar Aplicação */}
-            < Modal isOpen={showDoseModal} onClose={() => setShowDoseModal(false)} title="Nova Aplicação" >
-                <div className="space-y-4">
-                    <div className="text-center bg-slate-50 p-3 rounded-2xl">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Dose Atual</p>
-                        <p className="text-xl font-black text-slate-800">{user.currentDose} <span className="text-sm font-medium text-slate-400">({user.medicationId})</span></p>
-                    </div>
-
-                    <div>
-                        <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-4">Escolha o Local da Aplicação</label>
-                        <BodySelector
-                            selectedSiteId={selectedSiteId || injectionSuggestion.id}
-                            onSelect={setSelectedSiteId}
-                            suggestedSiteId={injectionSuggestion.id}
-                            lastSiteId={user.doseHistory?.[0]?.siteId}
-                        />
-                    </div>
-
-                    <Button onClick={handleAddDoseRecord} className="w-full">Confirmar Aplicação</Button>
                 </div>
             </Modal >
 
