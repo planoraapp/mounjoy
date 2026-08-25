@@ -80,23 +80,23 @@ const Charts = ({ user }) => {
         datasets: [{
             label: view === 'weight' ? (hasEnoughData ? 'Peso (kg)' : 'Peso (Demo)') : 'Glicemia (mg/dL)',
             data: view === 'weight' ? weightLogs.map(m => m.weight) : glucoseHistory,
-            borderColor: view === 'weight' ? '#0d9488' : '#34d399',
+            borderColor: view === 'weight' ? '#EA580C' : '#10B981',
             backgroundColor: (context) => {
                 const chart = context.chart;
                 const { ctx, chartArea } = chart;
-                if (!chartArea) return 'rgba(13, 148, 136, 0.1)';
+                if (!chartArea) return 'rgba(234, 88, 12, 0.1)';
                 const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                const color = view === 'weight' ? 'rgba(13, 148, 136, 0.4)' : 'rgba(52, 211, 153, 0.4)';
+                const color = view === 'weight' ? 'rgba(234, 88, 12, 0.35)' : 'rgba(16, 185, 129, 0.35)';
                 gradient.addColorStop(0, 'rgba(255, 255, 255, 0.0)');
                 gradient.addColorStop(1, color);
                 return gradient;
             },
-            borderWidth: 4,
+            borderWidth: 3,
             pointBackgroundColor: '#ffffff',
-            pointBorderColor: view === 'weight' ? '#0d9488' : '#34d399',
-            pointBorderWidth: 3,
-            pointRadius: 4,
-            pointHoverRadius: 7,
+            pointBorderColor: view === 'weight' ? '#EA580C' : '#10B981',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
             fill: true,
             tension: 0.4
         }]
@@ -132,7 +132,7 @@ const Charts = ({ user }) => {
         },
         scales: {
             y: {
-                grid: { color: '#f1f5f9', drawBorder: false },
+                grid: { color: '#F1F5F9', drawBorder: false },
                 min: view === 'weight' ? Math.min(...weightLogs.map(m => m.weight)) - 5 : 60,
                 ticks: {
                     font: { family: 'Outfit', size: 10, weight: 'bold' },

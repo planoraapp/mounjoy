@@ -638,7 +638,7 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
                                 <span className="text-xs font-black text-orange-300 tabular-nums leading-none">{dailyData.protein} / {user.settings?.proteinGoal || 100}g</span>
                             </div>
                             <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-orange-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100)}%` }}></div>
+                                <div className="h-full bg-[#EAB308] rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.protein / (user.settings?.proteinGoal || 100)) * 100)}%` }}></div>
                             </div>
                         </div>
 
@@ -648,7 +648,7 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
                                 <span className="text-xs font-black text-blue-300 tabular-nums leading-none">{dailyData.water} / {user.settings?.waterGoal || 2.5}L</span>
                             </div>
                             <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-blue-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100)}%` }}></div>
+                                <div className="h-full bg-[#3B82F6] rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.water / (user.settings?.waterGoal || 2.5)) * 100)}%` }}></div>
                             </div>
                         </div>
 
@@ -658,7 +658,7 @@ const Dashboard = ({ user, setUser, setActiveTab }) => {
                                 <span className="text-xs font-black text-emerald-300 tabular-nums leading-none">{Math.round(dailyData.fiber)} / {user.settings?.fiberGoal || 25}g</span>
                             </div>
                             <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-400 rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.fiber / (user.settings?.fiberGoal || 25)) * 100)}%` }}></div>
+                                <div className="h-full bg-[#10B981] rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (dailyData.fiber / (user.settings?.fiberGoal || 25)) * 100)}%` }}></div>
                             </div>
                         </div>
                     </div>
